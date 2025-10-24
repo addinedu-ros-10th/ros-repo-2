@@ -1,0 +1,6 @@
+source;share/Manipulator/hook/pythonpath.ps1
+source;share/Manipulator/hook/pythonpath.dsv
+source;share/Manipulator/hook/pythonpath.sh
+source;share/Manipulator/hook/ament_prefix_path.ps1
+source;share/Manipulator/hook/ament_prefix_path.dsv
+source;share/Manipulator/hook/ament_prefix_path.sh
