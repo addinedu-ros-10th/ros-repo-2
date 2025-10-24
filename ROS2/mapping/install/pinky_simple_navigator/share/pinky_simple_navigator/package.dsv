@@ -1,0 +1,6 @@
+source;share/pinky_simple_navigator/hook/pythonpath.ps1
+source;share/pinky_simple_navigator/hook/pythonpath.dsv
+source;share/pinky_simple_navigator/hook/pythonpath.sh
+source;share/pinky_simple_navigator/hook/ament_prefix_path.ps1
+source;share/pinky_simple_navigator/hook/ament_prefix_path.dsv
+source;share/pinky_simple_navigator/hook/ament_prefix_path.sh

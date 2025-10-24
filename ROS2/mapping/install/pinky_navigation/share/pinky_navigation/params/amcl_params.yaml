@@ -1,0 +1,30 @@
+# amcl_params.yaml
+amcl:
+  ros__parameters:
+    use_map_topic: true
+    
+    # 로봇의 TF Frame 이름 (사용자 환경에 맞게 수정!)
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    global_frame_id: "map"
+
+    # Laser 스캔 토픽 이름 (사용자 환경에 맞게 수정!)
+    scan_topic: "/scan"
+
+    # 파티클 필터 파라미터
+    min_particles: 500
+    max_particles: 3000
+
+    set_initial_pose: true
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+    
+    # 업데이트 주기
+    update_min_d: 0.1
+    update_min_a: 0.2
+    
+    transform_tolerance: 1.0
+    tf_broadcast: true

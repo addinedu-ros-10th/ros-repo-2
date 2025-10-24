@@ -1,0 +1,34 @@
+frame_id: map
+loop: false          # true면 5개 완료 후 반복
+halt_on_failure: true
+goal_tolerance:
+  xy: 0.25           # m
+  yaw: 0.35          # rad
+waypoints:
+  - name: P1
+    x: -0.006239733658730984
+    y: -1.0384591817855835
+    yaw: 0.00
+  - name: P2
+    x: 1.13
+    y: -0.08
+    yaw: 1.57
+  - name: P3
+    x: 1.33
+    y: 1.04
+    yaw: 3.14
+  - name: P4_wall_close      # 벽과 가깝게 둘 포인트
+    x: -1.43
+    y: 1.09
+    yaw: -1.57
+  - name: P5
+    x: 0.00
+    y: 0.00
+    yaw: 0.00
+
+frame_id: map
+yaw_is_degrees: true
+waypoints:
+  - {name: P1, x: 1.31,  y: 1.00,  yaw: 0}
+  - {name: P2, x: -1.34, y: 1.00,  yaw: 180}
+  - {name: P3, x: -1.39, y: -0.36, yaw: 45}
