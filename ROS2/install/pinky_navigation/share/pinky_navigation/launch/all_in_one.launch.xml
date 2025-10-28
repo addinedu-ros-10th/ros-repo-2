@@ -1,0 +1,17 @@
+<launch>
+    <include file="$(find-pkg-share pinky_gazebo)/launch/launch_sim_fp.launch.xml" />
+
+    <include file="$(find-pkg-share pinky_navigation)/launch/bringup_launch.xml">
+        <arg name="map" value="$(find-pkg-share pinky_navigation)/maps/final_map.yaml" />
+        <arg name="use_sim_time" value="true" />
+    </include>
+
+    <include file="$(find-pkg-share pinky_navigation)/launch/nav2_view.launch.xml" />
+
+    <node pkg="tf2_ros"
+        exec="static_transform_publisher"
+        name="world_to_map_static_tf_publisher"
+        args="--x 0.619 --y 1.326 --z 0 --yaw 0 --pitch 0 --roll 0 --frame-id world --child-frame-id map" />
+
+
+</launch>

@@ -1,0 +1,10 @@
+<launch>
+    <arg name="use_sim_time" default="true" />
+
+    <node pkg="pinky_simple_navigator"
+            exec="simple_navigator"
+            name="simple_navigator"
+            output="screen">
+        <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+</launch>

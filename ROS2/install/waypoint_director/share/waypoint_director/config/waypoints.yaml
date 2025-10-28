@@ -1,0 +1,11 @@
+frame_id: map
+
+waypoints:
+  1: {x: -1.40, y: -0.36, yaw_deg:   0}
+  2: {x: 0.98,  y: 0.05,  yaw_deg: 180}
+  3: {x: 0.08, y: 1.00, yaw_deg:  0}
+  4: {x: -0.03, y: -1.07, yaw_deg:  180}
+  5: {x: -1.17, y: 1.10, yaw_deg:  0}
+
+
+

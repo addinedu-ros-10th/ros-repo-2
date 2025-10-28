@@ -1,0 +1,6 @@
+source;share/waypoint_markers/hook/pythonpath.ps1
+source;share/waypoint_markers/hook/pythonpath.dsv
+source;share/waypoint_markers/hook/pythonpath.sh
+source;share/waypoint_markers/hook/ament_prefix_path.ps1
+source;share/waypoint_markers/hook/ament_prefix_path.dsv
+source;share/waypoint_markers/hook/ament_prefix_path.sh
