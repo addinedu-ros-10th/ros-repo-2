@@ -1,0 +1,48 @@
+<?xml version="1.0" ?>
+<sdf version="1.4">
+  <model name="team2_map9">
+    <link name="link">
+      <inertial>
+        <mass>1</mass>
+        <inertia>
+          <ixx>0.0</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>0.0</iyy>
+          <iyz>0.0</iyz>
+          <izz>0.0</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://team2_map9/map.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+
+      <visual name="visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://team2_map9/map.stl</uri>
+          </mesh>
+        </geometry>
+
+        <!-- 🔽 여기가 색 지정 파트 -->
+        <material>
+          <ambient>0 0 0 1</ambient>
+          <diffuse>0 0 0 1</diffuse>
+          <specular>0 0 0 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+        <!-- ambient/diffuse/specular/emissive = RGBA -->
+        <!-- 0 0 0 1 = 완전한 검정색, alpha=1 (불투명) -->
+      </visual>
+
+    </link>
+    <static>1</static>
+  </model>
+</sdf>

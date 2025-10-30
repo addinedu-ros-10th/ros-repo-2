@@ -1,8 +1,8 @@
 <launch>
     <arg name="use_sim_time" default="true" />
     <arg name="map" default="" description="Full path to map file to load"/>
-    
-    <arg name="params_file" 
+
+    <arg name="params_file"
             default="$(find-pkg-share pinky_navigation)/params/amcl_params.yaml"/>
 
     <node pkg="nav2_map_server"

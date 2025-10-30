@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="world_name" default="pinky_fp.world"/>
+  <arg name="world" default="$(find-pkg-share pinky_gazebo)/worlds/$(var world_name)"/>
+
+  <set_env name="GZ_SIM_RESOURCE_PATH"
+           value="$(find-pkg-share pinky_description)/../:/$(find-pkg-share pinky_gazebo)/models"/>
+
+  <!-- Gazebo server -->
+  <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
+    <arg name="gz_args" value="-r -s -v4 $(var world)"/>
+    <arg name="on_exit_shutdown" value="true"/>
+  </include>
+
+  <!-- Gazebo GUI -->
+  <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
+    <arg name="gz_args" value="-g -v4"/>
+  </include>
+</launch>

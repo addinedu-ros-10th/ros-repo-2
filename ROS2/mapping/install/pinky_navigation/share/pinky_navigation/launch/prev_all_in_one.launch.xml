@@ -1,0 +1,13 @@
+<launch>
+    <!-- 1) Gazebo 시뮬 켜기 -->
+    <include file="$(find-pkg-share pinky_gazebo)/launch/launch_sim_fp.launch.xml" />
+
+    <!-- 2) Nav2 bringup (map_server 등) -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/bringup_launch.xml">
+        <arg name="map" value="$(find-pkg-share pinky_navigation)/maps/team2_map_real.yaml" />
+        <arg name="use_sim_time" value="true" />
+    </include>
+
+    <!-- 3) RViz / 시각화 -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/nav2_view.launch.xml" />
+</launch>

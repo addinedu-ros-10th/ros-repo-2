@@ -14,8 +14,8 @@
     <arg name="log_level" default="info"/>
     <arg name="lifecycle_nodes" default="['map_server', 'amcl']"/>
 
-    <load_composable_node target="$(var container_name)" if="$(var use_composition)">    
-        <composable_node pkg="nav2_map_server" plugin="nav2_map_server::MapServer" name="map_server">            
+    <load_composable_node target="$(var container_name)" if="$(var use_composition)">
+        <composable_node pkg="nav2_map_server" plugin="nav2_map_server::MapServer" name="map_server">
             <param from="$(var params_file)"/>
             <param name='use_sim_time' value="$(var use_sim_time)"/>
             <param name='yaml_filename' value="$(var map)"/>
@@ -24,20 +24,20 @@
             <remap from="/tf_static" to="tf_static"/>
         </composable_node>
 
-        <composable_node pkg="nav2_amcl" plugin="nav2_amcl::AmclNode" name="amcl">         
+        <composable_node pkg="nav2_amcl" plugin="nav2_amcl::AmclNode" name="amcl">
             <param from="$(var params_file)"/>
             <param name='use_sim_time' value="$(var use_sim_time)"/>
             <param name='yaml_filename' value="$(var map)"/>
 
             <remap from="/tf" to="tf"/>
             <remap from="/tf_static" to="tf_static"/>
-        </composable_node>  
+        </composable_node>
 
-        <composable_node pkg="nav2_lifecycle_manager" plugin="nav2_lifecycle_manager::LifecycleManager" name="lifecycle_manager_localization">            
+        <composable_node pkg="nav2_lifecycle_manager" plugin="nav2_lifecycle_manager::LifecycleManager" name="lifecycle_manager_localization">
             <param name='use_sim_time' value="$(var use_sim_time)"/>
             <param name='autostart' value="$(var autostart)"/>
             <param name='node_names' value="$(var lifecycle_nodes)"/>
-        </composable_node>  
+        </composable_node>
     </load_composable_node>
 
     <group unless="$(var use_composition)">
@@ -49,7 +49,7 @@
             <param name='respawn_delay' value="2.0"/>
             <param name='log_level' value="$(var log_level)"/>
             <param name='use_sim_time' value="$(var use_sim_time)"/>
-            
+
 
             <remap from="/tf" to="tf"/>
             <remap from="/tf_static" to="tf_static"/>

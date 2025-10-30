@@ -1,8 +1,0 @@
-frame_id: map
-yaw_is_degrees: true
-waypoints:
-  - {name: P1, x: 0.00,  y: 0.00,  yaw: 0}
-  - {name: P2, x: 1.20,  y: 1.03,  yaw: 180}
-  - {name: P3, x: 1.03, y: -0.09, yaw: 180}
-  - {name: P4, x: 1.00, y: -1.13, yaw: 180}
-  - {name: P5, x: 1.36, y: -1.12, yaw: 180}
