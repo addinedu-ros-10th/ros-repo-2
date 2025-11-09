@@ -1,0 +1,26 @@
+/**:
+  ros__parameters:
+    # PID 제어기 설정
+    pid_linear_gain: 0.8
+    pid_angular_gain: 1.5
+    distance_threshold: 0.05
+    max_linear_vel: 0.15
+    
+    # 음성 어시스턴트 설정
+    mic_index: 4
+    language: "ko-KR"
+    timeout: 5.0
+    listen_timeout: 5.0
+    
+    # 제어 주기 설정
+    control_rate: 10.0
+    marker_publish_rate: 1.0
+    
+    # 웨이포인트 설정
+    arrival_threshold: 0.1
+    path_search_timeout: 5.0
+    
+    # 모드 전환 설정
+    nav2_mode: "nav2"
+    pid_mode: "pid"
+    mode_switch_delay: 0.5

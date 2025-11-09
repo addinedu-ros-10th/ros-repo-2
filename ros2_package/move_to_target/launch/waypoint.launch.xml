@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="map" default="$(find-pkg-share pinky_navigation)/map/team2_map_real.yaml"/>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="world_name" default="pinky_fp.world"/>
+
+  <!-- 시뮬레이터 시작 -->
+  <include file="$(find-pkg-share pinky_gz_sim)/launch/launch_sim_fp.launch.xml">
+    <arg name="world_name" value="$(var world_name)"/>
+  </include>
+
+  <!-- 내비게이션 시작 -->
+  <include file="$(find-pkg-share pinky_navigation)/launch/bringup_launch.xml">
+    <arg name="map" value="$(var map)"/>
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+  </include>
+
+  <!-- RViz 시작 -->
+  <include file="$(find-pkg-share pinky_navigation)/launch/nav2_view.launch.xml">
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+  </include>
+
+  <!-- move_to_target 노드들 -->
+  <node pkg="move_to_target" exec="waypoint_marker" output="screen" name="waypoint_marker">
+    <param name="waypoint_file" value="$(find-pkg-share move_to_target)/my_map_waypoints.yaml"/>
+  </node>
+
+  <node pkg="move_to_target" exec="cmd_vel_switcher" output="screen" name="cmd_vel_switcher">
+  </node>
+
+  <node pkg="move_to_target" exec="pid_controller" output="screen" name="pid_controller">
+  </node>
+
+  <node pkg="move_to_target" exec="waypoint" output="screen" name="waypoint_controller"
+      launch-prefix="bash -c 'sleep 15; $0 $@'">
+    <param name="waypoint_file" value="$(find-pkg-share move_to_target)/my_map_waypoints.yaml"/>
+  </node>
+
+  <node pkg="move_to_target" exec="voice_nav_assistant" output="screen" name="voice_nav_assistant"
+        respawn="true" respawn_delay="2.0"
+        launch-prefix='bash -c "PYTHONPATH=/home/lim/venv/ros/lib/python3.12/site-packages:$PYTHONPATH $0 $@"'>
+  </node>
+</launch>

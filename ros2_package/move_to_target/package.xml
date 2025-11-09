@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypelayout="1.0"?>
+<package format="3">
+  <name>move_to_target</name>
+  <version>0.0.1</version>
+  <description>Waypoint navigation with voice assistant integration</description>
+
+  <maintainer email="wlstnz3@gmail.com">addinedu</maintainer>
+  <license>Apache License 2.0</license>
+
+  <!-- 빌드 도구 -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- 코어 ROS 2 의존성 -->
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <!-- 내비게이션 의존성 -->
+  <depend>nav2_simple_commander</depend>
+  <depend>tf_transformations</depend>
+  <depend>nav_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+
+  <!-- 런치 파일 의존성 -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <!-- 음성 인식 관련 의존성 (선택사항) -->
+  <exec_depend>python3-speechrecognition</exec_depend>
+  <exec_depend>python3-gtts</exec_depend>
+  <exec_depend>python3-playsound</exec_depend>
+
+  <!-- 테스트 의존성 -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <!-- 엔트리 포인트 등록 -->
+  <export>
+    <build_type>ament_python</build_type>
+    <exec_depend>move_to_target</exec_depend>
+  </export>
+</package>
