@@ -1,40 +1,65 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QStackedWidget, QLabel, QHBoxLayout
-from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
 import sys
-import cv2
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QPolygonF
-from PyQt6.QtCore import QPointF
-from PyQt6.QtCore import Qt
+import threading
 from datetime import datetime
 
+import cv2
+import rclpy
+from PyQt6.QtCore import Qt, QTimer, QPointF
+from PyQt6.QtGui import QImage, QPixmap, QPainter, QColor, QPolygonF
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton,
+    QVBoxLayout, QHBoxLayout, QStackedWidget,
+    QTableWidget, QTableWidgetItem
+)
+from PyQt6.QtWidgets import (
+    QLineEdit, QSpinBox, QCheckBox, QTextEdit, QGroupBox, QFormLayout,
+    QHeaderView
+)
+from PyQt6.QtCore import pyqtSignal, QObject
 
+from GUI.signaller import BridgeSignaller
+from server.bridge import ROSTCPBridge
+from GUI.io_widget import IOWidget
+
+# ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
-    def __init__(self, map_path):
+    """로봇의 위치를 지도 위에 표시하는 위젯"""
+
+    def __init__(self, map_path: str):
         super().__init__()
         self.base_pixmap = QPixmap(map_path)
         self.setPixmap(self.base_pixmap)
-        self.robots = {}  # domain_id -> (x,y)
+        self.robots = {}  # domain_id → (x, y)
 
-    def set_robot(self, domain_id, x, y):
+    def set_robot(self, domain_id: int, x: float, y: float):
+        """로봇의 위치 업데이트"""
         self.robots[domain_id] = (x, y)
         self.repaint()
 
     def paintEvent(self, event):
         painter = QPainter(self)
+         # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
         scaled = self.base_pixmap.scaled(
-            self.width(), self.height(),
+            self.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation
         )
-        painter.drawPixmap(0, 0, scaled)
 
-        for domain, (x, y) in self.robots.items():
-            # world 좌표 → 픽셀 변환 (간단히 스케일링 예시)
-            px = int(x * 10)
-            py = int(y * 10)
-            # 삼각형 그리기
+        # 중앙 정렬을 위한 오프셋 계산
+        x = (self.width() - scaled.width()) // 2
+        y = (self.height() - scaled.height()) // 2
+
+        # 중앙에 그리기
+        painter.drawPixmap(x, y, scaled)
+
+        # 로봇 좌표 표시 (스케일 비율 반영)
+        scale_x = scaled.width() / self.base_pixmap.width()
+        scale_y = scaled.height() / self.base_pixmap.height()
+
+        for domain, (x_val, y_val) in self.robots.items():
+            px = int(x_val * 10 * scale_x) + x
+            py = int(y_val * 10 * scale_y) + y
+
             size = 10
             tri = QPolygonF([
                 QPointF(px, py - size),
@@ -43,48 +68,51 @@ class MapWidget(QLabel):
             ])
             painter.setBrush(QColor(255, 0, 0))
             painter.drawPolygon(tri)
-            painter.drawText(px+12, py, str(domain))
+            painter.drawText(px + 12, py, str(domain))
+
         painter.end()
 
+
+# ------------------------- [카메라 위젯] -------------------------
 class CameraWidget(QWidget):
+    """웹캠 영상을 표시하는 위젯"""
+
     def __init__(self):
         super().__init__()
         self.label = QLabel("카메라 화면")
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.label)
-        self.setLayout(self.layout)
-
         self.cap = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
 
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
     def start_camera(self):
-        # 이미 타이머가 돌고 있으면 아무 것도 안 함
+        """카메라 시작"""
         if self.timer.isActive():
             return
-        # cap이 없거나 열려있지 않으면 연다
         if self.cap is None or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(0)
-        # cap이 정상 열렸을 때만 타이머 시작
-        if self.cap is not None and self.cap.isOpened():
+            self.cap = cv2.VideoCapture("http://192.168.2.100:81/stream")
+        if self.cap and self.cap.isOpened():
             self.timer.start(30)
 
     def stop_camera(self):
-        # 타이머 중지 및 cap 해제 (안전하게)
+        """카메라 정지"""
         if self.timer.isActive():
             self.timer.stop()
-        if self.cap is not None:
+        if self.cap:
             try:
                 if self.cap.isOpened():
                     self.cap.release()
             except Exception:
                 pass
             self.cap = None
-        # 화면 지우기
         self.label.clear()
 
     def update_frame(self):
-        if self.cap is None:
+        """프레임 갱신"""
+        if not self.cap:
             return
         ret, frame = self.cap.read()
         if not ret:
@@ -93,121 +121,152 @@ class CameraWidget(QWidget):
         h, w, ch = frame.shape
         img = QImage(frame.data, w, h, ch * w, QImage.Format.Format_RGB888)
         self.label.setPixmap(QPixmap.fromImage(img))
-            
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("찬LOGIC")
 
-        # # 레이아웃 최소/최대 크기 지정
-        # self.setMinimumSize(640, 480)
-        # self.setMaximumSize(1280, 1024)
-        self.setFixedSize(800, 600) # 창 크기 지정
+# ------------------------- [메인 윈도우] -------------------------
+class MainWindow(QWidget):
+    """메인 GUI: 지도, 로그, 버튼, CCTV 등 통합"""
+
+    def __init__(self, signaller):
+        super().__init__()
+        self.signaller = signaller
+        self.setWindowTitle("찬LOGIC")
+        self.setFixedSize(800, 600)
 
         self.title_label = QLabel("메인 상태 화면")
         self.title_label.setFixedHeight(30)
 
-        # 상단 버튼
+        # --- 버튼 생성 ---
         self.button_main = QPushButton("메인 화면")
         self.button_io = QPushButton("입/출고")
+        self.button_storage = QPushButton("제품 현황")
         self.button_staff = QPushButton("임직원")
         self.button_cctv = QPushButton("CCTV")
         self.button_manual = QPushButton("수동 조작")
 
-        for b in (self.button_main, self.button_io, self.button_staff,
-                  self.button_cctv, self.button_manual):
-            b.setFixedSize(120, 40)
+        for btn in (self.button_main, self.button_io, self.button_storage, self.button_staff,
+                    self.button_cctv, self.button_manual):
+            btn.setFixedSize(120, 40)
 
-        # --- 메인 화면 구성: 맵 + 로그 ---
+        # --- 메인 페이지 구성 ---
         self.map_widget = MapWidget("/home/addinedu/dev_ws/ros-repo-2/GUI/map.png")
-        self.log_table = QTableWidget()
-        self.log_table.setColumnCount(3)
+        self.map_widget.setMaximumWidth(400)
+        self.log_table = QTableWidget(0, 3)
         self.log_table.setHorizontalHeaderLabels(["ID", "좌표(x, y)", "수신 일시"])
-        self.log_table.setMinimumWidth(355)
+        self.log_table.setMinimumWidth(360)
         self.log_table.setColumnWidth(0, 50)
         self.log_table.setColumnWidth(1, 150)
         self.log_table.setColumnWidth(2, 150)
 
         content_layout = QHBoxLayout()
-        content_layout.addWidget(self.map_widget, stretch=2)
-        content_layout.addWidget(self.log_table, stretch=3)
+        content_layout.addWidget(self.map_widget, 2)
+        content_layout.addWidget(self.log_table, 3)
 
-        self.main_page = QWidget()
-        self.main_page.setLayout(content_layout)
+        main_page = QWidget()
+        main_page.setLayout(content_layout)
 
         # --- 스택 구성 ---
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.main_page)               # index 0
-        self.stack.addWidget(QLabel("입/출고 화면"))       # index 1
-        self.stack.addWidget(QLabel("임직원 화면"))       # index 2
-        self.cctv_widget = CameraWidget()                 # index 3
+        self.stack.addWidget(main_page)                  # index 0
+        # self.stack.addWidget(QLabel("입/출고 화면"))      # index 1
+        self.io_widget = IOWidget(signaller)   # signaller는 main 실행부에서 만든 객체
+        self.stack.addWidget(self.io_widget)   # index 1
+        self.stack.addWidget(QLabel("제품 현황"))      # index 2
+        self.stack.addWidget(QLabel("임직원 화면"))      # index 3
+        self.cctv_widget = CameraWidget()                # index 4
         self.stack.addWidget(self.cctv_widget)
-        self.stack.addWidget(QLabel("수동 조작"))         # index 4
+        self.stack.addWidget(QLabel("수동 조작"))        # index 5
 
-        self.stack.currentChanged.connect(self.on_stack_changed)
-
-        # 버튼 이벤트 연결
+        # --- 버튼 이벤트 연결 ---
         self.button_main.clicked.connect(lambda: self.stack.setCurrentIndex(0))
         self.button_io.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-        self.button_staff.clicked.connect(lambda: self.stack.setCurrentIndex(2))
-        self.button_cctv.clicked.connect(lambda: self.stack.setCurrentIndex(3))
-        self.button_manual.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        self.button_storage.clicked.connect(lambda: self.stack.setCurrentIndex(2))
+        self.button_staff.clicked.connect(lambda: self.stack.setCurrentIndex(3))
+        self.button_cctv.clicked.connect(lambda: self.stack.setCurrentIndex(4))
+        self.button_manual.clicked.connect(lambda: self.stack.setCurrentIndex(5))
+        self.stack.currentChanged.connect(self.on_stack_changed)
 
-        # 레이아웃 구성
+        # --- 메인 레이아웃 ---
         button_layout = QHBoxLayout()
-        button_layout.addWidget(self.button_main)
-        button_layout.addWidget(self.button_io)
-        button_layout.addWidget(self.button_staff)
-        button_layout.addWidget(self.button_cctv)
-        button_layout.addWidget(self.button_manual)
+        for btn in (self.button_main, self.button_io, self.button_storage, self.button_staff,
+                    self.button_cctv, self.button_manual):
+            button_layout.addWidget(btn)
 
-        main_layout = QVBoxLayout()
-        main_layout.addLayout(button_layout)
-        main_layout.addWidget(self.stack)
-        main_layout.addWidget(self.title_label)
+        layout = QVBoxLayout()
+        layout.addLayout(button_layout)
+        layout.addWidget(self.stack)
+        layout.addWidget(self.title_label)
+        self.setLayout(layout)
 
-        self.setLayout(main_layout)
-
-        # 초기 화면을 메인으로
+        # 기본 화면 설정
         self.stack.setCurrentIndex(0)
-    
+
+    # -------------------- 화면 전환 이벤트 --------------------
     def on_stack_changed(self, idx: int):
-        # CCTV 인덱스(여기선 3)에 들어오면 start, 아니면 stop
         current = self.stack.currentWidget()
+
         if current is self.cctv_widget:
             self.title_label.setText("CCTV 화면")
             self.cctv_widget.start_camera()
-
-        elif isinstance(current, QLabel) and current.text() == "메인 화면":
-            self.title_label.setText("메인 상태 화면")
+        else:
             self.cctv_widget.stop_camera()
+            text_map = {
+                0: "메인 상태 화면",
+                1: "입/출고 로그",
+                2: "제품 현황",
+                3: "임직원 현황",
+                5: "수동 조작"
+            }
+            self.title_label.setText(text_map.get(idx, ""))
 
-
-        elif isinstance(current, QLabel) and current.text() == "입/출고 화면":
-            self.title_label.setText("입/출고")
-            self.cctv_widget.stop_camera()
-
-        elif isinstance(current, QLabel) and current.text() == "임직원 화면":
-            self.title_label.setText("임직원")
-            self.cctv_widget.stop_camera()
-
-        elif isinstance(current, QLabel) and current.text() == "수동 조작":
-            self.title_label.setText("수동 조작")
-            self.cctv_widget.stop_camera()
-
-        elif current is self.map_widget:
-            self.title_label.setText("메인 상태 화면")
-            self.cctv_widget.stop_camera()
-
-    def add_log(self, domain_id, x, y):
+    # -------------------- 로그 추가 --------------------
+    def add_log(self, domain_id: int, x: float, y: float):
+        """로봇 좌표 수신 시 테이블에 로그 추가"""
         row = self.log_table.rowCount()
         self.log_table.insertRow(row)
         self.log_table.setItem(row, 0, QTableWidgetItem(str(domain_id)))
         self.log_table.setItem(row, 1, QTableWidgetItem(f"({x:.2f}, {y:.2f})"))
         self.log_table.setItem(row, 2, QTableWidgetItem(datetime.now().strftime("%H:%M:%S")))
 
+
+# ------------------------- [메인 실행부] -------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
+
+    # 1) signaller 생성 (기존)
+    signaller = BridgeSignaller()
+
+    # 2) MainWindow에 signaller 전달
+    window = MainWindow(signaller)
     window.show()
+
+    # 3) 시그널 연결: ROS → GUI
+    def update_gui(domain_id, x, y):
+        window.map_widget.set_robot(domain_id, x, y)
+        window.add_log(domain_id, x, y)
+
+    signaller.robot_signal.connect(update_gui)
+
+    # 4) (선택) 입/출고 로그가 개별 연결이 필요하면 여기서 연결 가능
+    # 예: signaller.io_logs_signal.connect(window.io_widget.update_logs)
+    window.io_widget.set_products(["선택하세요.", "화장품", "제품B", "제품C"])
+    if hasattr(signaller, "io_logs_signal"):
+        try:
+            signaller.io_logs_signal.connect(window.io_widget.update_logs)
+        except Exception:
+            pass
+
+    # ROS2 노드 스레드 실행
+    def ros_thread():
+        rclpy.init()
+        node = ROSTCPBridge(signaller)
+        try:
+            rclpy.spin(node)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            node.stop_flag = True
+            node.destroy_node()
+            rclpy.shutdown()
+
+    threading.Thread(target=ros_thread, daemon=True).start()
     sys.exit(app.exec())

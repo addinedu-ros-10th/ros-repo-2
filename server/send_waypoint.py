@@ -41,7 +41,7 @@ def main(args=None):
     node = WaypointPublisher()
     try:
         # 안전하게 보내기 (구독자 확인)
-        node.send_command(3)
+        node.send_command(3, robot_id=1)
         # publish 후 약간 유지해서 DDS가 메시지를 전파하도록 함
         rclpy.spin_once(node, timeout_sec=0.5)
     finally:

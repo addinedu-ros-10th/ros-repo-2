@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
 from geometry_msgs.msg import Point
 import random
 
@@ -13,17 +14,25 @@ class RobotPositionPublisher(Node):
 
     def timer_callback(self):
         pos = Point()
-        pos.x = random.uniform(0.0, 10.0)
-        pos.y = random.uniform(0.0, 10.0)
+        pos.x = random.uniform(7.0, 32.0)
+        pos.y = random.uniform(6.0, 43.0)
         pos.z = 0.0
         self.publisher_.publish(pos)
         print(f"[ROS2 발행] 로봇{self.robot_id} 위치: ({pos.x:.2f}, {pos.y:.2f})")
 
 def main():
     rclpy.init()
+
+    # 로봇 3대 노드 생성
     nodes = [RobotPositionPublisher(i) for i in range(1, 4)]
+
+    # MultiThreadedExecutor에 노드 등록
+    executor = MultiThreadedExecutor()
+    for node in nodes:
+        executor.add_node(node)
+
     try:
-        rclpy.spin(nodes[0])  # 한 노드만 spin
+        executor.spin()   # 모든 노드 동시에 실행
     except KeyboardInterrupt:
         pass
     finally:
