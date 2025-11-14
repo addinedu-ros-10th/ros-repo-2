@@ -20,7 +20,7 @@ class ROSTCPBridge(Node, QObject):
         self.create_subscription(Point, '/robot2/pos', self.robot2_callback, 10)
         self.create_subscription(Point, '/robot3/pos', self.robot3_callback, 10)
 
-        self.host = "192.168.0.184"
+        self.host = "192.168.2.7"
         self.port = 2025
         self.stop_flag = False
 
@@ -46,43 +46,31 @@ class ROSTCPBridge(Node, QObject):
 
     def start_tcp_server(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 재사용 옵션
         server.bind((self.host, self.port))
         server.listen(1)
         print(f"[TCP 서버 대기 중] {self.host}:{self.port}")
 
-        conn, addr = server.accept()
-        print(f"[TCP 연결 수락] 클라이언트: {addr}")
+        while not self.stop_flag:   # 서버 전체 루프
+            print("[TCP 연결 대기 중...]")
+            conn, addr = server.accept()
+            print(f"[TCP 연결 수락] 클라이언트: {addr}")
 
-        buffer = b""
-        try:
-            while not self.stop_flag:
-                chunk = conn.recv(1024)
-                if not chunk:
-                    print("[TCP 연결 종료 감지]")
-                    break
+            try:
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        print("[TCP 연결 종료 감지]")
+                        break
+                    print("📩 수신:", data.decode())
+            except Exception as e:
+                print(f"[TCP 오류] {e}")
+            finally:
+                conn.close()
+                print("[TCP 연결 닫힘]")
 
-                buffer += chunk
-
-                # 정확히 PACKET_SIZE 단위로 처리
-                while len(buffer) >= PACKET_SIZE:
-                    packet = buffer[:PACKET_SIZE]
-                    buffer = buffer[PACKET_SIZE:]
-
-                    try:
-                        id_val = packet[0]
-                        sensor = packet[1:3].decode(errors='ignore')
-                        x, y, z, led_state = struct.unpack('<fffB', packet[3:16])
-                        led_text = "ON" if led_state else "OFF"
-                        print(f"[TCP 수신] ID={id_val}, 센서={sensor}, 좌표=({x:.2f}, {y:.2f}, {z:.2f}), LED={led_text}")
-                    except struct.error as e:
-                        print(f"[패킷 파싱 오류] 구조체 언패킹 실패: {e}")
-
-        except Exception as e:
-            print(f"[오류] TCP 수신 중 예외 발생: {e}")
-        finally:
-            conn.close()
-            server.close()
-            print("[TCP 서버 종료]")
+        server.close()
+        print("[TCP 서버 종료]")
 
 def main():
     rclpy.init()

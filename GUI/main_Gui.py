@@ -94,6 +94,9 @@ class CameraWidget(QWidget):
             return
         if self.cap is None or not self.cap.isOpened():
             self.cap = cv2.VideoCapture("http://192.168.2.100:81/stream")
+            # ESP32-CAM 해상도 설정
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         if self.cap and self.cap.isOpened():
             self.timer.start(30)
 
@@ -117,11 +120,22 @@ class CameraWidget(QWidget):
         ret, frame = self.cap.read()
         if not ret:
             return
+        
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = frame.shape
         img = QImage(frame.data, w, h, ch * w, QImage.Format.Format_RGB888)
-        self.label.setPixmap(QPixmap.fromImage(img))
 
+        pixmap = QPixmap.fromImage(img)
+
+        # QLabel 크기에 맞게 비율 유지하며 스케일링
+        scaled_pixmap = pixmap.scaled(
+            self.label.size(),              # 현재 QLabel 크기
+            Qt.AspectRatioMode.KeepAspectRatio,      # 비율 유지
+            Qt.TransformationMode.SmoothTransformation  # 부드럽게 확대/축소
+        )
+
+        self.label.setPixmap(scaled_pixmap)
+        
 # ------------------------- [메인 윈도우] -------------------------
 class MainWindow(QWidget):
     """메인 GUI: 지도, 로그, 버튼, CCTV 등 통합"""
@@ -149,7 +163,7 @@ class MainWindow(QWidget):
 
         # --- 메인 페이지 구성 ---
         self.map_widget = MapWidget("/home/addinedu/dev_ws/ros-repo-2/GUI/map.png")
-        self.map_widget.setMaximumWidth(400)
+        # self.map_widget.setMaximumWidth(400)
         self.log_table = QTableWidget(0, 3)
         self.log_table.setHorizontalHeaderLabels(["ID", "좌표(x, y)", "수신 일시"])
         self.log_table.setMinimumWidth(360)

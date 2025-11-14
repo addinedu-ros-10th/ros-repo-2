@@ -1,53 +1,58 @@
-import socket
 import serial
-import struct
 import time
+import socket
 
-SERVER_IP = "192.168.0.184"  # ROS Bridge 서버 IP
-PORT = 2025                  # Mosquitto와 충돌 피하기 위해 2025 사용
+# === TCP 클라이언트 설정 ===
+HOST = "192.168.2.7"   # 서버 IP (예: 라즈베리파이, PC IP)
+PORT = 2025          # 서버 포트
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((HOST, PORT))
 
-SERIAL_PORT = "/dev/ttyACM0" # 아두이노 메가 연결 포트 (리눅스 기준)
-BAUDRATE = 115200
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+time.sleep(2)
+print("✅ 연결됨. 3개의 RFID 및 4개의 가스 데이터 수신 중...\n")
 
-def start_serial_to_tcp():
-    ser = serial.Serial(SERIAL_PORT, BAUDRATE, timeout=1)
-    print(f"[시리얼 연결 완료] {SERIAL_PORT} ({BAUDRATE}bps)")
+last_status_time = time.time()
 
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((SERVER_IP, PORT))
-    print(f"[TCP 연결 완료] {SERVER_IP}:{PORT}")
+while True:
+    now = time.time()
+    if now - last_status_time >= 1.0:
+        print("RFID 및 가스 데이터 수신 중...")
+        last_status_time = now
 
-    try:
-        while True:
-            line = ser.readline().decode().strip()
-            if not line:
-                continue
+    if ser.in_waiting >= 3:
+        header = ser.read(1)
+        if header == b'\xAA':
+            dtype = ser.read(1)
 
-            try:
-                # 예: "1,OB,1.23,4.56,7.89,1"
-                parts = line.split(',')
-                id_val = int(parts[0])
-                sensor = parts[1][:2]
-                x, y, z = map(float, parts[2:5])
-                led_state = int(parts[5]) if len(parts) > 5 else 0
+            # === RFID 1 / 2 / 3 ===
+            if dtype in [b'\x11', b'\x12', b'\x13']:
+                uid_bytes = []
+                while True:
+                    b = ser.read(1)
+                    if not b or b == b'\x55':
+                        break
+                    uid_bytes.append(b[0])
+                if uid_bytes:
+                    uid_str = ' '.join(f'{b:02X}' for b in uid_bytes)
+                    reader_map = {b'\x11': "1번", b'\x12': "2번", b'\x13': "3번"}
+                    reader = reader_map[dtype]
+                    msg = f"RFID {reader} → {uid_str}"
+                    print("💳", msg)
+                    sock.sendall(msg.encode())
 
-                # 기존 데이터 패킹 (LED는 TCP로 안 보내고 print만)
-                data = struct.pack('<B2sfffB', id_val, sensor.encode(), x, y, z, led_state)
-                client.sendall(data)
-
-                led_text = "ON" if led_state else "OFF"
-                print(f"[TCP 송신] ID={id_val}, 센서={sensor}, 좌표=({x:.2f}, {y:.2f}, {z:.2f}), LED={led_text}")
-
-            except Exception as e:
-                print(f"[데이터 파싱 오류] '{line}' → {e}")
-
-            time.sleep(0.1)
-
-    except KeyboardInterrupt:
-        print("\n[중단] 종료 중...")
-    finally:
-        ser.close()
-        client.close()
-
-if __name__ == "__main__":
-    start_serial_to_tcp()
+            # === 가스 센서 데이터 ===
+            elif dtype == b'\x20':
+                data = ser.read(1)
+                footer = ser.read(1)
+                if footer == b'\x55':
+                    packet = data[0]
+                    active = []
+                    if packet & (1 << 0): active.append("S1")
+                    if packet & (1 << 1): active.append("S2")
+                    if packet & (1 << 2): active.append("S3")
+                    if packet & (1 << 3): active.append("S4")
+                    if active:
+                        msg = "Gas detected → " + ", ".join(active)
+                        print("🌫", msg)
+                        sock.sendall(msg.encode())
