@@ -18,8 +18,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, QObject
 
 from GUI.signaller import BridgeSignaller
-from server.bridge import ROSTCPBridge
+from server.Central_control import ROSTCPBridge
 from GUI.io_widget import IOWidget
+from GUI.staff_widget import StaffWidget
 
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
@@ -185,7 +186,9 @@ class MainWindow(QWidget):
         self.io_widget = IOWidget(signaller)   # signaller는 main 실행부에서 만든 객체
         self.stack.addWidget(self.io_widget)   # index 1
         self.stack.addWidget(QLabel("제품 현황"))      # index 2
-        self.stack.addWidget(QLabel("임직원 화면"))      # index 3
+        self.staff_widget = StaffWidget(signaller)   # index 3
+        self.stack.addWidget(self.staff_widget)
+        # self.stack.addWidget(QLabel("임직원 화면"))      # index 3
         self.cctv_widget = CameraWidget()                # index 4
         self.stack.addWidget(self.cctv_widget)
         self.stack.addWidget(QLabel("수동 조작"))        # index 5
@@ -268,6 +271,7 @@ if __name__ == "__main__":
             signaller.io_logs_signal.connect(window.io_widget.update_logs)
         except Exception:
             pass
+        
 
     # ROS2 노드 스레드 실행
     def ros_thread():
