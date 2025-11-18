@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from pinky_interfaces/srv/SetLamp.srv
+// generated code does not contain a copyright notice
+
+#include "std_msgs/msg/ColorRGBA.idl"
+
+module pinky_interfaces {
+  module srv {
+    struct SetLamp_Request {
+      std_msgs::msg::ColorRGBA color;
+
+      uint8 mode;
+
+      uint16 time;
+    };
+    struct SetLamp_Response {
+      boolean result;
+    };
+  };
+};

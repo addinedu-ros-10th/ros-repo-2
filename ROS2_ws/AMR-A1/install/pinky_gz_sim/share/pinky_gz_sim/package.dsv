@@ -1,0 +1,11 @@
+source;share/pinky_gz_sim/hook/cmake_prefix_path.ps1
+source;share/pinky_gz_sim/hook/cmake_prefix_path.dsv
+source;share/pinky_gz_sim/hook/cmake_prefix_path.sh
+source;share/pinky_gz_sim/hook/ld_library_path_lib.ps1
+source;share/pinky_gz_sim/hook/ld_library_path_lib.dsv
+source;share/pinky_gz_sim/hook/ld_library_path_lib.sh
+source;share/pinky_gz_sim/local_setup.bash
+source;share/pinky_gz_sim/local_setup.dsv
+source;share/pinky_gz_sim/local_setup.ps1
+source;share/pinky_gz_sim/local_setup.sh
+source;share/pinky_gz_sim/local_setup.zsh

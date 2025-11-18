@@ -1,0 +1,14 @@
+<?xml version='1.0'?>
+
+<launch>
+    <!-- RViz 설정 파일 -->
+    <arg name="rviz_config_file" default="$(find-pkg-share pinky_navigation)/rviz/nav2_view.rviz"/>
+
+    <!-- RViz 실행 -->
+    <node pkg="rviz2" exec="rviz2" output="screen" args="-d $(var rviz_config_file)">
+    </node>
+
+    <!-- move_to_target 패키지 전체 실행 -->
+    <include file="$(find-pkg-share move_to_target)/launch/move_to_target_launch.py"/>
+
+</launch>

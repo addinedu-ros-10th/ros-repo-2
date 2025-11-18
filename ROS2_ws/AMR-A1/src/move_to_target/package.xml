@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>move_to_target</name>
+  <version>0.0.1</version>
+  <description>Waypoint + PID Hybrid Navigation</description>
+
+  <maintainer email="example@example.com">ricky</maintainer>
+  <license>Apache License 2.0</license>
+
+  <!-- build -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- dependencies -->
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>nav2_simple_commander</depend>
+  <depend>tf_transformations</depend>
+
+  <!-- runtime -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <!-- extra -->
+  <exec_depend>python3-speechrecognition</exec_depend>
+  <exec_depend>python3-gtts</exec_depend>
+  <exec_depend>python3-playsound</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
