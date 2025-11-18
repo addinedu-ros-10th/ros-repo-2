@@ -21,24 +21,83 @@ from GUI.signaller import BridgeSignaller
 from server.bridge import ROSTCPBridge
 from GUI.io_widget import IOWidget
 
+import os
+import yaml
+
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
-    """로봇의 위치를 지도 위에 표시하는 위젯"""
+    """SLAM으로 만든 map(.yaml + .pgm) 위에 로봇 위치를 표시하는 위젯"""
 
     def __init__(self, map_path: str):
+        """
+        map_path: map.yaml 또는 그냥 이미지 파일 경로
+        """
         super().__init__()
-        self.base_pixmap = QPixmap(map_path)
+
+        self.robots = {}  # domain_id -> (x, y)  (단위: map frame [m])
+
+        # 기본값
+        self.resolution = 0.05     # [m/pixel]
+        self.origin = [0.0, 0.0, 0.0]  # [x, y, yaw] in map frame
+
+        # 1) yaml이면: yaml 읽어서 image/reso/origin 사용
+        # 2) 아니면: 단순 이미지로 사용 (테스트용 fallback)
+        ext = os.path.splitext(map_path)[1].lower()
+        if ext in [".yaml", ".yml"]:
+            with open(map_path, "r") as f:
+                data = yaml.safe_load(f)
+
+            image_file = data["image"]          # 예: "lab1.pgm"
+            self.resolution = float(data["resolution"])
+            self.origin = data["origin"]        # [origin_x, origin_y, origin_yaw]
+
+            image_path = os.path.join(os.path.dirname(map_path), image_file)
+            self.base_pixmap = QPixmap(image_path)
+        else:
+            # 기존처럼 png 등을 직접 사용하는 경우
+            self.base_pixmap = QPixmap(map_path)
+
         self.setPixmap(self.base_pixmap)
-        self.robots = {}  # domain_id → (x, y)
+
 
     def set_robot(self, domain_id: int, x: float, y: float):
-        """로봇의 위치 업데이트"""
+        """
+        로봇 위치 업데이트
+        x, y: map 좌표계 [m] (예: /amcl_pose 의 position.x, position.y)
+        """
         self.robots[domain_id] = (x, y)
         self.repaint()
 
+    def _world_to_image_pixel(self, x_world: float, y_world: float):
+        """
+        map 좌표계 [m] -> 원본 이미지 상의 픽셀 좌표 (0,0: 좌상단 기준)
+        Nav2 map 규약 기준:
+          - origin = [origin_x, origin_y, yaw]
+          - origin은 이미지의 (0,0) 픽셀의 실제 좌표 (왼쪽 아래 기준)
+          - y는 위로 증가, 이미지는 아래로 증가하므로 뒤집어야 함
+        """
+        if self.base_pixmap.isNull():
+            return 0, 0
+
+        origin_x, origin_y, _ = self.origin
+        res = self.resolution
+        img_w = self.base_pixmap.width()
+        img_h = self.base_pixmap.height()
+
+        # 이미지의 (0,0)은 왼쪽 아래라고 가정한 map 정의
+        px_from_left = (x_world - origin_x) / res
+        py_from_bottom = (y_world - origin_y) / res
+
+        # Qt 픽셀 좌표: (0,0)은 좌상단이므로 y축 반전
+        px = px_from_left
+        py = img_h - py_from_bottom
+
+        return px, py
+
     def paintEvent(self, event):
         painter = QPainter(self)
-         # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
+
+        # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
         scaled = self.base_pixmap.scaled(
             self.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
@@ -46,31 +105,45 @@ class MapWidget(QLabel):
         )
 
         # 중앙 정렬을 위한 오프셋 계산
-        x = (self.width() - scaled.width()) // 2
-        y = (self.height() - scaled.height()) // 2
+        offset_x = (self.width() - scaled.width()) // 2
+        offset_y = (self.height() - scaled.height()) // 2
 
-        # 중앙에 그리기
-        painter.drawPixmap(x, y, scaled)
+        # 중앙에 맵 그리기
+        painter.drawPixmap(offset_x, offset_y, scaled)
 
-        # 로봇 좌표 표시 (스케일 비율 반영)
-        scale_x = scaled.width() / self.base_pixmap.width()
-        scale_y = scaled.height() / self.base_pixmap.height()
+        # 스케일 비율
+        base_w = self.base_pixmap.width()
+        base_h = self.base_pixmap.height()
+        if base_w == 0 or base_h == 0:
+            painter.end()
+            return
 
-        for domain, (x_val, y_val) in self.robots.items():
-            px = int(x_val * 10 * scale_x) + x
-            py = int(y_val * 10 * scale_y) + y
+        scale_x = scaled.width() / base_w
+        scale_y = scaled.height() / base_h
 
-            size = 10
-            tri = QPolygonF([
-                QPointF(px, py - size),
-                QPointF(px - size, py + size),
-                QPointF(px + size, py + size)
-            ])
-            painter.setBrush(QColor(255, 0, 0))
-            painter.drawPolygon(tri)
-            painter.drawText(px + 12, py, str(domain))
+        # 각 로봇 그리기
+        for domain, (x_world, y_world) in self.robots.items():
+            # 1) map 좌표 -> 원본 이미지 픽셀 좌표
+            img_px, img_py = self._world_to_image_pixel(x_world, y_world)
 
-        painter.end()
+            # 2) 스케일링 후, 화면좌표로 변환
+            px = int(img_px * scale_x) + offset_x
+            py = int(img_py * scale_y) + offset_y
+
+            # ★ 로봇 원(마커) 색: 빨강 고정
+            color = QColor(255, 0, 0)
+
+            # Brush = 빨강, Pen = 없음 (윤곽선 제거)
+            painter.setBrush(color)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            radius = 8
+            painter.drawEllipse(px - radius, py - radius, radius * 2, radius * 2)
+
+            # ★ 텍스트(로봇 ID) 색: 검정 고정
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(px + radius + 4, py + radius + 4, str(domain))
+
 
 
 # ------------------------- [카메라 위젯] -------------------------
@@ -148,7 +221,8 @@ class MainWindow(QWidget):
             btn.setFixedSize(120, 40)
 
         # --- 메인 페이지 구성 ---
-        self.map_widget = MapWidget("/home/addinedu/dev_ws/ros-repo-2/GUI/map.png")
+        self.map_widget = MapWidget("./GUI/gui_team2_map.yaml")
+        # self.map_widget = MapWidget("./GUI/map.png")
         self.map_widget.setMaximumWidth(400)
         self.log_table = QTableWidget(0, 3)
         self.log_table.setHorizontalHeaderLabels(["ID", "좌표(x, y)", "수신 일시"])
