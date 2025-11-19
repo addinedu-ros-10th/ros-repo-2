@@ -19,7 +19,7 @@ class SimRobotPublisher(Node):
             '/robot21/amcl_pose',
             10
         )
-        
+
         self.timer = self.create_timer(0.1, self.timer_callback)  # 10Hz
         self.t = 0.0
 
@@ -37,7 +37,7 @@ class SimRobotPublisher(Node):
 
         # AMCL 메시지 생성
         msg = PoseWithCovarianceStamped()
-        
+
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "map"
 
