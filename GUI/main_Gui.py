@@ -1,6 +1,7 @@
 import sys
 import threading
 from datetime import datetime
+import pandas as pd
 
 import cv2
 import rclpy
@@ -21,6 +22,7 @@ from GUI.signaller import BridgeSignaller
 from server.Central_control import ROSTCPBridge
 from GUI.io_widget import IOWidget
 from GUI.staff_widget import StaffWidget
+from GUI.manual_widget import ManualControlWidget
 
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
@@ -163,14 +165,14 @@ class MainWindow(QWidget):
             btn.setFixedSize(120, 40)
 
         # --- 메인 페이지 구성 ---
-        self.map_widget = MapWidget("/home/addinedu/dev_ws/ros-repo-2/GUI/map.png")
+        self.map_widget = MapWidget("./GUI/map.png")
         # self.map_widget.setMaximumWidth(400)
         self.log_table = QTableWidget(0, 3)
         self.log_table.setHorizontalHeaderLabels(["ID", "좌표(x, y)", "수신 일시"])
         self.log_table.setMinimumWidth(360)
-        self.log_table.setColumnWidth(0, 50)
-        self.log_table.setColumnWidth(1, 150)
-        self.log_table.setColumnWidth(2, 150)
+        self.log_table.setColumnWidth(0, 70)
+        self.log_table.setColumnWidth(1, 170)
+        self.log_table.setColumnWidth(2, 170)
 
         content_layout = QHBoxLayout()
         content_layout.addWidget(self.map_widget, 2)
@@ -182,16 +184,16 @@ class MainWindow(QWidget):
         # --- 스택 구성 ---
         self.stack = QStackedWidget()
         self.stack.addWidget(main_page)                  # index 0
-        # self.stack.addWidget(QLabel("입/출고 화면"))      # index 1
         self.io_widget = IOWidget(signaller)   # signaller는 main 실행부에서 만든 객체
         self.stack.addWidget(self.io_widget)   # index 1
         self.stack.addWidget(QLabel("제품 현황"))      # index 2
         self.staff_widget = StaffWidget(signaller)   # index 3
         self.stack.addWidget(self.staff_widget)
-        # self.stack.addWidget(QLabel("임직원 화면"))      # index 3
         self.cctv_widget = CameraWidget()                # index 4
         self.stack.addWidget(self.cctv_widget)
-        self.stack.addWidget(QLabel("수동 조작"))        # index 5
+        self.staff_manual_widget = ManualControlWidget()
+        self.stack.addWidget(self.staff_manual_widget)        # index 5
+
 
         # --- 버튼 이벤트 연결 ---
         self.button_main.clicked.connect(lambda: self.stack.setCurrentIndex(0))
@@ -271,7 +273,38 @@ if __name__ == "__main__":
             signaller.io_logs_signal.connect(window.io_widget.update_logs)
         except Exception:
             pass
-        
+
+    # 5) staff_list_add 판다스 프레임 저장용 시그널 연결
+    df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+
+    def update_staff_list(new_entry):
+        global df
+        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+
+        # StaffWidget 테이블 갱신 호출
+        window.staff_widget.update_log_table(df)
+
+    if hasattr(signaller, "staff_list_add"):
+        try:
+            signaller.staff_list_add.connect(update_staff_list)
+            
+        except Exception:
+            pass
+    
+    def delete_staff_row(row):
+        global df
+        if 0 <= row < len(df):
+            df = df.drop(index=row).reset_index(drop=True)
+            print(f"GUI: 직원 데이터프레임에서 행 {row} 삭제\n", df)
+
+            # StaffWidget 테이블 갱신 호출
+            window.staff_widget.update_log_table(df)
+
+    if hasattr(signaller, "staff_delete_row"):
+        try:
+            signaller.staff_delete_row.connect(delete_staff_row)
+        except Exception:
+            pass        
 
     # ROS2 노드 스레드 실행
     def ros_thread():
