@@ -304,11 +304,7 @@ if __name__ == "__main__":
         try:
             signaller.staff_delete_row.connect(delete_staff_row)
         except Exception:
-<<<<<<< HEAD
             pass        
-=======
-            pass
->>>>>>> 299ee85e9f4487066448282979049bfcc5a89bc7
 
     # ROS2 노드 스레드 실행
     def ros_thread():

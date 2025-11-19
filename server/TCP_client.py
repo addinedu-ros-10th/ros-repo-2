@@ -3,11 +3,7 @@ import time
 import socket
 
 # === TCP 클라이언트 설정 ===
-<<<<<<< HEAD
-HOST = "192.168.0.184"   # 서버 IP (예: 라즈베리파이, PC IP)
-=======
 HOST = "192.168.0.184"   # 서버 IP (예: 라즈베리파이, PC IP) 192.168.2.7
->>>>>>> 299ee85e9f4487066448282979049bfcc5a89bc7
 PORT = 2025          # 서버 포트
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect((HOST, PORT))
