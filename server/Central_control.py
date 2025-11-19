@@ -29,7 +29,11 @@ class ROSTCPBridge(Node, QObject):
         self.create_subscription(Point, '/robot2/pos', self.robot2_callback, 10)
         self.create_subscription(Point, '/robot3/pos', self.robot3_callback, 10)
 
+<<<<<<< HEAD
         self.host = "192.168.0.184"
+=======
+        self.host = "192.168.0.184"   # 서버 IP 192.168.2.7
+>>>>>>> 299ee85e9f4487066448282979049bfcc5a89bc7
         self.port = 2025
         self.stop_flag = False
 
