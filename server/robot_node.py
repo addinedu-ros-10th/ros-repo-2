@@ -1,75 +1,81 @@
 '''
-robot 랜덤으로 자표 뿌려주는 코드
+로봇 좌표 임의로 주는것
 '''
 
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
-from geometry_msgs.msg import PoseWithCovarianceStamped, Point
 
-
-class PinkyPoseRelay(Node):
+class ManualPosePublisher(Node):
     """
-    Pinky(Nav2)에서 나오는 실제 위치(/amcl_pose)를 받아서
-    GUI가 이미 사용 중인 /robot{robot_id}/pos 토픽(Point)로 중계하는 노드.
+    원하는 좌표(x,y)를 그대로 /robot{ID}/amcl_pose 로 퍼블리시하는 노드.
     """
 
-    def __init__(self):
-        super().__init__('pinky_pose_relay')
+    def __init__(self, robot_id, pose_list):
+        super().__init__(f'manual_pose_pub_{robot_id}')
+        self.robot_id = robot_id
+        self.pose_list = pose_list   # [(x1,y1), (x2,y2), ...]
+        self.index = 0
 
-        # GUI에서 사용할 로봇 ID (기본 1)
-        self.declare_parameter('robot_id', 1)
-        self.robot_id = self.get_parameter('robot_id').get_parameter_value().integer_value
-
-        # 입력: Nav2에서 나오는 pose 토픽
-        input_topic = '/amcl_pose'  # 필요 시 여기만 실제 토픽 이름으로 변경
-
-        # 출력: GUI에서 이미 구독 중인 토픽 (/robot1/pos, /robot2/pos, ...)
-        output_topic = f'/robot{self.robot_id}/pos'
-
-        # 구독자 생성 (/amcl_pose)
-        self.subscription = self.create_subscription(
+        self.publisher_ = self.create_publisher(
             PoseWithCovarianceStamped,
-            input_topic,
-            self.pose_callback,
+            f'/robot{robot_id}/amcl_pose',
             10
         )
 
-        # 퍼블리셔 생성 (/robot{ID}/pos)
-        self.publisher_ = self.create_publisher(Point, output_topic, 10)
+        self.timer = self.create_timer(1.0, self.timer_callback)
+        self.get_logger().info(f"로봇{robot_id} 수동 좌표 발행 시작")
 
-        self.get_logger().info(
-            f'PinkyPoseRelay 시작: input={input_topic}, output={output_topic}, robot_id={self.robot_id}'
-        )
+    def timer_callback(self):
+        if not self.pose_list:
+            return
 
-    def pose_callback(self, msg: PoseWithCovarianceStamped):
-        """
-        /amcl_pose 들어올 때마다 GUI용 /robot{ID}/pos(Point)로 변환해서 발행.
-        """
-        x = msg.pose.pose.position.x
-        y = msg.pose.pose.position.y
+        x, y = self.pose_list[self.index]
+        self.index = (self.index + 1) % len(self.pose_list)
 
-        pt = Point()
-        pt.x = x
-        pt.y = y
-        pt.z = 0.0
+        msg = PoseWithCovarianceStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = "map"
 
-        self.publisher_.publish(pt)
-        # 디버깅 필요하면 주석 해제
-        # self.get_logger().info(f"/robot{self.robot_id}/pos -> ({x:.3f}, {y:.3f})")
+        msg.pose.pose.position.x = x
+        msg.pose.pose.position.y = y
+        msg.pose.pose.position.z = 0.0
+
+        self.publisher_.publish(msg)
+
+        print(f"[PUB] robot{self.robot_id} -> ({x:.2f}, {y:.2f})")
 
 
 def main():
     rclpy.init()
-    node = PinkyPoseRelay()
+
+    # ★ 여기에 너가 원하는 좌표를 넣으면 됨 ★
+    poses_robot21 = [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)]
+    poses_robot22 = [(2.25, 0.0), (2.25, 0.0), (2.25, 0.0)]
+    poses_robot23 = [(0.0, -3.43), (0.0, -3.43), (0.0, -3.43)]
+
+    nodes = [
+        ManualPosePublisher(21, poses_robot21),
+        ManualPosePublisher(22, poses_robot22),
+        ManualPosePublisher(23, poses_robot23),
+    ]
+
+    executor = MultiThreadedExecutor()
+    for node in nodes:
+        executor.add_node(node)
+
     try:
-        rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
-        node.destroy_node()
+        for node in nodes:
+            node.destroy_node()
         rclpy.shutdown()
 
 
 if __name__ == '__main__':
     main()
+
