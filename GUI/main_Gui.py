@@ -1,6 +1,7 @@
 import sys
 import threading
 from datetime import datetime
+import pandas as pd
 
 import cv2
 import rclpy
@@ -271,7 +272,38 @@ if __name__ == "__main__":
             signaller.io_logs_signal.connect(window.io_widget.update_logs)
         except Exception:
             pass
-        
+
+    # 5) staff_list_add 판다스 프레임 저장용 시그널 연결
+    df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+
+    def update_staff_list(new_entry):
+        global df
+        df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+
+        # StaffWidget 테이블 갱신 호출
+        window.staff_widget.update_log_table(df)
+
+    if hasattr(signaller, "staff_list_add"):
+        try:
+            signaller.staff_list_add.connect(update_staff_list)
+            
+        except Exception:
+            pass
+    
+    def delete_staff_row(row):
+        global df
+        if 0 <= row < len(df):
+            df = df.drop(index=row).reset_index(drop=True)
+            print(f"GUI: 직원 데이터프레임에서 행 {row} 삭제\n", df)
+
+            # StaffWidget 테이블 갱신 호출
+            window.staff_widget.update_log_table(df)
+
+    if hasattr(signaller, "staff_delete_row"):
+        try:
+            signaller.staff_delete_row.connect(delete_staff_row)
+        except Exception:
+            pass
 
     # ROS2 노드 스레드 실행
     def ros_thread():

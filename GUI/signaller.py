@@ -6,5 +6,5 @@ class BridgeSignaller(QObject):
     staff_rfid_signal_2 = pyqtSignal(str)   # RFID_2 UID 전달
     staff_rfid_signal_3 = pyqtSignal(str)   # RFID_3 UID 전달
     
-    staff_list_add = pyqtSignal(dict)           # GUI → 서버 dict 전달
-    staff_list_signal = pyqtSignal(object)      # 서버 → GUI DataFrame 전달
+    staff_list_add = pyqtSignal(dict)
+    staff_delete_row = pyqtSignal(int)

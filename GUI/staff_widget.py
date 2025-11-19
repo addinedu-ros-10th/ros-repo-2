@@ -99,7 +99,6 @@ class StaffWidget(QWidget):
             self.pending_dialog = None
 
     def on_rfid_received(self, uid):
-
         # 등록 대기 상태일 때만 처리
         if not self.waiting_for_rfid:
             return
@@ -120,7 +119,11 @@ class StaffWidget(QWidget):
         df = {"name": name, "phone": phone, "date": date, "uid": uid}
         print(df)
         self.signaller.staff_list_add.emit(df)
-        print("GUI: staff_list_add 시그널 발행 완료", df)
+
+        # 데이터 초기화
+        self.name_edit.clear()
+        self.phone_edit.clear()
+        self.date_edit.setDate(QDate.currentDate())
 
         # row = self.log_table.rowCount()
         # self.log_table.insertRow(row)
@@ -150,6 +153,8 @@ class StaffWidget(QWidget):
 
             if reply == QMessageBox.StandardButton.Yes:
                 self.log_table.removeRow(row)
+                self.signaller.staff_delete_row.emit(row)
+                print(f"GUI: {name} 삭제 시그널 발행 완료 (행 {row})")
 
 
     def update_log_table(self, staff_list):
