@@ -24,24 +24,126 @@ from GUI.io_widget import IOWidget
 from GUI.staff_widget import StaffWidget
 from GUI.manual_widget import ManualControlWidget
 
+import os
+import yaml
+
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
-    """로봇의 위치를 지도 위에 표시하는 위젯"""
+    """SLAM으로 만든 map(.yaml + .pgm) 또는 커스텀 PNG 위에 로봇 위치를 표시하는 위젯"""
 
     def __init__(self, map_path: str):
+        """
+        map_path:
+          - map.yaml  : SLAM map (yaml + pgm)
+          - afew.png  : GUI용 커스텀 이미지 (좌표 변환 직접 적용)
+        """
         super().__init__()
-        self.base_pixmap = QPixmap(map_path)
+
+        self.robots = {}  # domain_id -> (x, y)  (단위: map frame [m])
+
+        # 기본값
+        self.resolution = 0.05     # [m/pixel]
+        self.origin = [0.0, 0.0, 0.0]  # [x, y, yaw] in map frame
+
+        # 커스텀 PNG를 쓰는지 여부 (True면 우리가 직접 스케일링/원점 맞춤)
+        self.use_custom_png = False
+
+        ext = os.path.splitext(map_path)[1].lower()
+        if ext in [".yaml", ".yml"]:
+            # 1) yaml이면: yaml 읽어서 image/reso/origin 사용
+            with open(map_path, "r") as f:
+                data = yaml.safe_load(f)
+
+            image_file = data["image"]          # 예: "lab1.pgm"
+            self.resolution = float(data["resolution"])
+            self.origin = data["origin"]        # [origin_x, origin_y, origin_yaw]
+
+            image_path = os.path.join(os.path.dirname(map_path), image_file)
+            self.base_pixmap = QPixmap(image_path)
+            self.use_custom_png = False
+        else:
+            # 2) png 등을 직접 사용하는 경우 (afew.png 등)
+            self.base_pixmap = QPixmap(map_path)
+            self.use_custom_png = True
+
         self.setPixmap(self.base_pixmap)
-        self.robots = {}  # domain_id → (x, y)
 
     def set_robot(self, domain_id: int, x: float, y: float):
-        """로봇의 위치 업데이트"""
+        """
+        로봇 위치 업데이트
+        x, y: pinky의 map 좌표계 [m] (예: /amcl_pose 의 position.x, position.y)
+        """
         self.robots[domain_id] = (x, y)
         self.repaint()
 
+    def _world_to_image_pixel(self, x_world: float, y_world: float):
+        """
+        map 좌표계 [m] -> 원본 이미지 상의 픽셀 좌표 (0,0: 좌상단 기준)
+
+        - use_custom_png == False (yaml 모드):
+            Nav2 map 규약 기준:
+              origin = [origin_x, origin_y, yaw]
+              origin은 이미지의 (0,0) 픽셀의 실제 좌표 (왼쪽 아래 기준)
+              y는 위로 증가, 이미지는 아래로 증가하므로 뒤집어야 함
+
+        - use_custom_png == True (PNG 모드):
+            네가 맞춰준 4개 기준점으로 선형 스케일링:
+              pinky (0,    0)    -> GUI (0,   17)
+              pinky (0,   -3.43) -> GUI (0,    0)
+              pinky (2.25,-3.43) -> GUI (11,  0)
+              pinky (2.25, 0)    -> GUI (11, 17)
+
+            여기서 GUI 좌표 (X,Y)는
+              X: 0 ~ 11
+              Y: 0 ~ 17  (0 = 아래, 17 = 위)
+            이고, 이 GUI 좌표 사각형을 PNG 전체 픽셀 영역에 매핑함.
+        """
+        if self.base_pixmap.isNull():
+            return 0, 0
+
+        img_w = self.base_pixmap.width()
+        img_h = self.base_pixmap.height()
+
+        # ---------- 1) 커스텀 PNG 모드 (afew.png) ----------
+        if self.use_custom_png:
+            # 1단계: pinky map 좌표 (x_world, y_world) -> GUI 좌표 (X_gui, Y_gui)
+
+            # X_gui: 0~11, x:0 -> 0, x:2.25 -> 11
+            X_gui = (11.0 / 2.25) * x_world
+
+            # Y_gui: 0~17, y:-3.43 -> 0, y:0 -> 17
+            Y_gui = (17.0 / 3.43) * y_world + 17.0
+
+            # 2단계: GUI 좌표 (0~11, 0~17)을 PNG 픽셀(0~img_w, 0~img_h)에 매핑
+            #   - X_gui = 0   -> px = 0
+            #   - X_gui = 11  -> px = img_w
+            px = img_w * (X_gui / 11.0)
+
+            #   - Y_gui = 0   -> "아래" → py = img_h
+            #   - Y_gui = 17  -> "위"   → py = 0
+            py = img_h * (1.0 - (Y_gui / 17.0))
+
+            return px, py
+
+        # ---------- 2) YAML + PGM (Nav2 map 규약) ----------
+        origin_x, origin_y, _ = self.origin
+        res = self.resolution
+
+        # 이미지의 (0,0)은 왼쪽 아래라고 가정한 map 정의
+        px_from_left = (x_world - origin_x) / res
+        py_from_bottom = (y_world - origin_y) / res
+
+        # Qt 픽셀 좌표: (0,0)은 좌상단이므로 y축 반전
+        px = px_from_left
+        py = img_h - py_from_bottom
+
+        return px, py
+
+
     def paintEvent(self, event):
         painter = QPainter(self)
-         # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
+
+        # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
         scaled = self.base_pixmap.scaled(
             self.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
@@ -49,31 +151,44 @@ class MapWidget(QLabel):
         )
 
         # 중앙 정렬을 위한 오프셋 계산
-        x = (self.width() - scaled.width()) // 2
-        y = (self.height() - scaled.height()) // 2
+        offset_x = (self.width() - scaled.width()) // 2
+        offset_y = (self.height() - scaled.height()) // 2
 
-        # 중앙에 그리기
-        painter.drawPixmap(x, y, scaled)
+        # 중앙에 맵 그리기
+        painter.drawPixmap(offset_x, offset_y, scaled)
 
-        # 로봇 좌표 표시 (스케일 비율 반영)
-        scale_x = scaled.width() / self.base_pixmap.width()
-        scale_y = scaled.height() / self.base_pixmap.height()
+        # 스케일 비율
+        base_w = self.base_pixmap.width()
+        base_h = self.base_pixmap.height()
+        if base_w == 0 or base_h == 0:
+            painter.end()
+            return
 
-        for domain, (x_val, y_val) in self.robots.items():
-            px = int(x_val * 10 * scale_x) + x
-            py = int(y_val * 10 * scale_y) + y
+        scale_x = scaled.width() / base_w
+        scale_y = scaled.height() / base_h
 
-            size = 10
-            tri = QPolygonF([
-                QPointF(px, py - size),
-                QPointF(px - size, py + size),
-                QPointF(px + size, py + size)
-            ])
-            painter.setBrush(QColor(255, 0, 0))
-            painter.drawPolygon(tri)
-            painter.drawText(px + 12, py, str(domain))
+        # 각 로봇 그리기
+        for domain, (x_world, y_world) in self.robots.items():
+            # 1) map 좌표 -> 원본 이미지 픽셀 좌표
+            img_px, img_py = self._world_to_image_pixel(x_world, y_world)
 
-        painter.end()
+            # 2) 스케일링 후, 화면좌표로 변환
+            px = int(img_px * scale_x) + offset_x
+            py = int(img_py * scale_y) + offset_y
+
+            # ★ 로봇 원(마커) 색: 빨강 고정
+            color = QColor(255, 0, 0)
+
+            # Brush = 빨강, Pen = 없음 (윤곽선 제거)
+            painter.setBrush(color)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            radius = 8
+            painter.drawEllipse(px - radius, py - radius, radius * 2, radius * 2)
+
+            # ★ 텍스트(로봇 ID) 색: 검정 고정
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(px + radius + 4, py + radius + 4, str(domain))
 
 
 # ------------------------- [카메라 위젯] -------------------------

@@ -6,6 +6,7 @@ import struct
 import threading
 from PyQt6.QtCore import QObject, pyqtSignal
 import pandas as pd
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 PACKET_SIZE = 16  # 1B id + 2B sensor + 12B xyz + 1B led
 
@@ -25,9 +26,24 @@ class ROSTCPBridge(Node, QObject):
         self.signaller.staff_list_add.connect(self.rfid_callback)
         print("서버: staff_list_add 시그널 연결 완료")
 
-        self.create_subscription(Point, '/robot1/pos', self.robot1_callback, 10)
-        self.create_subscription(Point, '/robot2/pos', self.robot2_callback, 10)
-        self.create_subscription(Point, '/robot3/pos', self.robot3_callback, 10)
+        self.create_subscription(
+            PoseWithCovarianceStamped,
+            '/robot21/amcl_pose',
+            self.robot1_callback,
+            10
+        )
+        self.create_subscription(
+            PoseWithCovarianceStamped,
+            '/robot22/amcl_pose',
+            self.robot2_callback,
+            10
+        )
+        self.create_subscription(
+            PoseWithCovarianceStamped,
+            '/robot23/amcl_pose',
+            self.robot3_callback,
+            10
+        )
 
         self.host = "192.168.0.184"   # 서버 IP 192.168.2.7
         self.port = 2025
@@ -38,20 +54,29 @@ class ROSTCPBridge(Node, QObject):
 
         print(f"[Bridge 시작] ROS2 수신 + TCP 수신 동시 실행 중 (포트 {self.port})")
 
-    def robot1_callback(self, msg):
-        domain_id = 21
-        print(f"[ROS2 수신] 로봇1 위치: ({msg.x:.2f}, {msg.y:.2f})")
-        self.signaller.robot_signal.emit(domain_id, msg.x, msg.y)  # 수정
+    # ---------------- ROS 콜백 ----------------
 
-    def robot2_callback(self, msg):
-        domain_id = 22
-        print(f"[ROS2 수신] 로봇2 위치: ({msg.x:.2f}, {msg.y:.2f})")
-        self.signaller.robot_signal.emit(domain_id, msg.x, msg.y)  # 수정
+    def _emit_robot(self, domain_id: int, msg: PoseWithCovarianceStamped):
+        """
+        공통 로직: PoseWithCovarianceStamped에서 x, y를 뽑아 GUI로 전달
+        """
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
 
-    def robot3_callback(self, msg):
-        domain_id = 23
-        print(f"[ROS2 수신] 로봇3 위치: ({msg.x:.2f}, {msg.y:.2f})")
-        self.signaller.robot_signal.emit(domain_id, msg.x, msg.y)  # 수정
+        print(f"[ROS2 수신] 로봇{domain_id} AMCL 위치: ({x:.2f}, {y:.2f})")
+
+        # GUI 쪽 BridgeSignaller로 전달
+        # (MainWindow에서 signaller.robot_signal.connect(update_gui) 로 연결되어 있음)
+        self.signaller.robot_signal.emit(domain_id, x, y)
+
+    def robot1_callback(self, msg: PoseWithCovarianceStamped):
+        self._emit_robot(domain_id=21, msg=msg)
+
+    def robot2_callback(self, msg: PoseWithCovarianceStamped):
+        self._emit_robot(domain_id=22, msg=msg)
+
+    def robot3_callback(self, msg: PoseWithCovarianceStamped):
+        self._emit_robot(domain_id=23, msg=msg)
 
     def start_tcp_server(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
