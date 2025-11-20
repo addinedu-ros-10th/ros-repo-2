@@ -39,8 +39,8 @@ class IOWidget(QWidget):
         self.pending_dialog = None
         self.log_entry = None
 
-        # 직원 리스트 로드
-        self.staff_list = pd.read_csv(STAFF_CSV_PATH)
+        # 직원 리스트 안전 로드
+        self.staff_list = self.load_staff_list()
 
         # -------------------- 입력 폼 --------------------
         form_group = QGroupBox("입/출고 등록")
@@ -339,3 +339,21 @@ class IOWidget(QWidget):
         self.qty_spin.setValue(0)
         self.abnormal_check.setChecked(False)
         self.confirmer_edit.clear()
+
+    def load_staff_list(self):
+        """STAFF_CSV_PATH를 안전하게 로드. 없으면 빈 DataFrame 반환"""
+        if os.path.exists(STAFF_CSV_PATH):
+            try:
+                df = pd.read_csv(STAFF_CSV_PATH, encoding="utf-8-sig")
+                # 컬럼 체크: 필요한 컬럼 없으면 기본 컬럼으로 초기화
+                expected_cols = ["name", "phone", "date", "uid"]
+                for col in expected_cols:
+                    if col not in df.columns:
+                        df[col] = ""
+                return df[expected_cols]  # 컬럼 순서도 맞춤
+            except Exception as e:
+                print(f"[WARN] CSV 읽기 실패: {e}")
+                return pd.DataFrame(columns=["name", "phone", "date", "uid"])
+        else:
+            print("[INFO] staff_list.csv 파일이 없어 빈 DataFrame 생성")
+            return pd.DataFrame(columns=["name", "phone", "date", "uid"])

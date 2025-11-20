@@ -454,12 +454,23 @@ if __name__ == "__main__":
     window = MainWindow(signaller)
     window.show()
 
-    loaded_df = pd.read_csv(STAFF_CSV_PATH)
-    window.staff_widget.update_log_table(loaded_df)
-    
-
+    # DataFrame 초기화
     # 직원 테이블 프레임 초기화
     df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+
+    if os.path.exists(STAFF_CSV_PATH):
+        try:
+            loaded_df = pd.read_csv(STAFF_CSV_PATH, encoding="utf-8-sig")
+        except Exception as e:
+            print(f"CSV 로드 실패: {e}")
+            loaded_df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+    else:
+        loaded_df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+    
+    window.staff_widget.update_log_table(loaded_df)
+
+    # 직원 테이블 프레임 초기화
+    
 
     # 3) 시그널 연결: ROS → GUI
     def update_gui(domain_id, x, y):

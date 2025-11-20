@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 
 
-STAFF_CSV_PATH = "./GUI/data/staff_list.csv"
+STAFF_CSV_PATH = "./GUI/data/storage_list.csv"
 
 ZONE_MAPPING = {
     "화장품": "1구역",
@@ -23,7 +23,7 @@ class StorageWidget(QWidget):
 
         # DataFrame 초기화
         try:
-            self.df = pd.read_csv(self.csv_path, encoding="utf-8-sig")
+            self.df = pd.read_csv(STAFF_CSV_PATH, encoding="utf-8-sig")
         except FileNotFoundError:
             self.df = pd.DataFrame(columns=["제품명", "장소", "수량", "일시"])
 
