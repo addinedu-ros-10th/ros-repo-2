@@ -11,14 +11,14 @@ from geometry_msgs.msg import PoseWithCovarianceStamped
 PACKET_SIZE = 16  # 1B id + 2B sensor + 12B xyz + 1B led
 HOST = "192.168.2.7"      # 서버 IP 192.168.2.7
 PORT_ARDUINO = 2025     # Arduino TCP 서버 포트
-PORT_AI = 2222         # AI TCP 서버 포트   
+PORT_AI = 2222         # AI TCP 서버 포트
 STOP_FLAG = False
 
 class ROSTCPBridge(Node, QObject):
     robot_signal = pyqtSignal(int, float, float)  # 클래스 속성으로 정의
     def __init__(self, signaller):
         Node.__init__(self, 'ros_tcp_bridge')   # ROS2 Node 초기화
-        QObject.__init__(self)  
+        QObject.__init__(self)
 
         self.signaller = signaller  # <-- 전달받은 signaller 저장
 
@@ -107,10 +107,10 @@ class ROSTCPBridge(Node, QObject):
                                 self.signaller.staff_rfid_signal_1.emit(uid_str)
                                 self.signaller.staff_rfid_signal_2.emit(uid_str)
                                 self.signaller.staff_rfid_signal_3.emit(uid_str)
-                            
+
                             if reader_info == "RFID 2번":
                                 self.signaller.staff_rfid_signal_2.emit(uid_str)
-                            
+
                             if reader_info == "RFID 3번":
                                 self.signaller.staff_rfid_signal_3.emit(uid_str)
 
@@ -195,7 +195,7 @@ def main(signaller):
             node.stop_flag = True
             node.destroy_node()
             rclpy.shutdown()
-            
+
     # ROS2 스레드 실행
     ros_thread = threading.Thread(target=ros_spin)
     ros_thread.start()

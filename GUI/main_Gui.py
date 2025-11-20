@@ -108,21 +108,21 @@ class MapWidget(QLabel):
 
         # ---------- 1) 커스텀 PNG 모드 (afew.png) ----------
         if self.use_custom_png:
-            # 1단계: pinky map 좌표 (x_world, y_world) -> GUI 좌표 (X_gui, Y_gui)
+            # 선형 변환식 (로봇 → GUI 좌표)
+            # X_gui = a1 * x_robot + b1
+            # Y_gui = a2 * y_robot + b2
 
-            # X_gui: 0~11, x:0 -> 0, x:2.25 -> 11
-            X_gui = (11.0 / 2.25) * x_world
+            a1 = 4.14
+            b1 = 1.364
+            a2 = 4.794
+            b2 = 5.008
 
-            # Y_gui: 0~17, y:-3.43 -> 0, y:0 -> 17
-            Y_gui = (17.0 / 3.43) * y_world + 17.0
+            X_gui = a1 * x_world + b1
+            Y_gui = a2 * y_world + b2
 
-            # 2단계: GUI 좌표 (0~11, 0~17)을 PNG 픽셀(0~img_w, 0~img_h)에 매핑
-            #   - X_gui = 0   -> px = 0
-            #   - X_gui = 11  -> px = img_w
+            # GUI 좌표를 PNG 픽셀로 변환
             px = img_w * (X_gui / 11.0)
 
-            #   - Y_gui = 0   -> "아래" → py = img_h
-            #   - Y_gui = 17  -> "위"   → py = 0
             py = img_h * (1.0 - (Y_gui / 17.0))
 
             return px, py
