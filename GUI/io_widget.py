@@ -198,11 +198,11 @@ class IOWidget(QWidget):
         self.abnormal_check.setChecked(False)
         self.confirmer_edit.clear()
 
-        # 서버로 전송
-        if hasattr(self.signaller, "io_send_signal"):
-            self.signaller.io_send_signal.emit(payload)
-        if hasattr(self.signaller, "send_io"):
-            self.signaller.send_io(payload)
+        # # 서버로 전송
+        # if hasattr(self.signaller, "io_send_signal"):
+        #     self.signaller.io_send_signal.emit(payload)
+        # if hasattr(self.signaller, "send_io"):
+        #     self.signaller.send_io(payload)
 
     # ======================================================
     #                    부가 기능
@@ -328,7 +328,8 @@ class IOWidget(QWidget):
         }
 
         # 송신 signal
-        if hasattr(self.signaller, "io_send_signal"):
+        if display_entry["inout_type"] in ["입고", "출고"]:
+            # print(f"[입출고 등록] 보냈음 {payload}")
             self.signaller.io_send_signal.emit(payload)
 
         # ===============================

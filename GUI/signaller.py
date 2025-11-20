@@ -8,3 +8,6 @@ class BridgeSignaller(QObject):
     
     staff_list_add = pyqtSignal(dict)           # GUI → 서버 dict 전달
     staff_delete_row = pyqtSignal(int)        # GUI → 서버 삭제할 행 인덱스 전달
+
+    io_send_signal = pyqtSignal(dict)         # 입출고 데이터 서버 전송
+    io_logs_signal = pyqtSignal(list)         # 서버 → GUI 입출고 로그

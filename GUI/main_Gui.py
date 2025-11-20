@@ -23,6 +23,7 @@ from server.Central_control import ROSTCPBridge
 from GUI.io_widget import IOWidget
 from GUI.staff_widget import StaffWidget
 from GUI.manual_widget import ManualControlWidget
+from GUI.storage_widget import StorageWidget
 
 import os
 import yaml
@@ -303,7 +304,8 @@ class MainWindow(QWidget):
         self.stack.addWidget(main_page)                  # index 0
         self.io_widget = IOWidget(signaller)   # signaller는 main 실행부에서 만든 객체
         self.stack.addWidget(self.io_widget)   # index 1
-        self.stack.addWidget(QLabel("제품 현황"))      # index 2
+        self.storage_widget = StorageWidget(signaller)
+        self.stack.addWidget(self.storage_widget)        # index 2
         self.staff_widget = StaffWidget(signaller)   # index 3
         self.stack.addWidget(self.staff_widget)
         self.cctv_widget = CameraWidget()                # index 4
@@ -377,6 +379,7 @@ if __name__ == "__main__":
 
     loaded_df = pd.read_csv(STAFF_CSV_PATH)
     window.staff_widget.update_log_table(loaded_df)
+    
 
     # 직원 테이블 프레임 초기화
     df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
@@ -391,6 +394,10 @@ if __name__ == "__main__":
     # 4) (선택) 입/출고 로그가 개별 연결이 필요하면 여기서 연결 가능
     # 예: signaller.io_logs_signal.connect(window.io_widget.update_logs)
     window.io_widget.set_products(["선택하세요.", "화장품", "전자 부품", "인형", "공구"])
+
+    # 입출고 -> 제품 현황 위젯 연결
+    signaller.io_send_signal.connect(window.storage_widget.update_storage) 
+
     if hasattr(signaller, "io_logs_signal"):
         try:
             signaller.io_logs_signal.connect(window.io_widget.update_logs)
@@ -434,7 +441,7 @@ if __name__ == "__main__":
         try:
             signaller.staff_delete_row.connect(delete_staff_row)
         except Exception:
-            pass        
+            pass       
 
     # ROS2 노드 스레드 실행
     def ros_thread():
