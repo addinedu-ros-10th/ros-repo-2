@@ -1,0 +1,193 @@
+
+name: multi_robot_bridge
+
+# 기본 센서 방향 (로봇 → PC)
+# topics 아래에서 from_domain/to_domain을 개별 토픽마다 override할 수 있음
+from_domain: 21
+to_domain: 26
+
+topics:
+
+  # ─────────────── Robot 21 ───────────────
+  # 센서: 21 → 26
+  /scan:
+    type: sensor_msgs/msg/LaserScan
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/scan
+
+  /camera/image_raw:
+    type: sensor_msgs/msg/Image
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/camera/image_raw
+
+  # 명령: 26 → 21
+  /robot21/cmd_vel:
+    type: geometry_msgs/msg/Twist
+    from_domain: 26
+    to_domain: 21
+    remap: /cmd_vel
+
+  /robot_description:
+    type: std_msgs/msg/String
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/robot_description
+
+  /joint_states:
+    type: sensor_msgs/msg/JointState
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/joint_states
+
+  /tf:
+    type: tf2_msgs/msg/TFMessage
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/tf
+
+  /map:
+    type: nav_msgs/msg/OccupancyGrid
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/map
+
+  /odom:
+    type: nav_msgs/msg/Odometry
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/odom
+
+  /amcl_pose:
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    from_domain: 21
+    to_domain: 26
+    remap: /robot21/amcl_pose
+
+
+  # ─────────────── Robot 22 ───────────────
+  # 센서: 22 → 26
+  /scan:
+    type: sensor_msgs/msg/LaserScan
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/scan
+
+  /camera/image_raw:
+    type: sensor_msgs/msg/Image
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/camera/image_raw
+
+  # 명령: 26 → 22
+  /robot22/cmd_vel:
+    type: geometry_msgs/msg/Twist
+    from_domain: 26
+    to_domain: 22
+    remap: /cmd_vel
+
+  /robot_description:
+    type: std_msgs/msg/String
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/robot_description
+
+  /joint_states:
+    type: sensor_msgs/msg/JointState
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/joint_states
+
+  /tf:
+    type: tf2_msgs/msg/TFMessage
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/tf
+
+  /map:
+    type: nav_msgs/msg/OccupancyGrid
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/map
+
+  /odom:
+    type: nav_msgs/msg/Odometry
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/odom
+
+  /amcl_pose:
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    from_domain: 22
+    to_domain: 26
+    remap: /robot22/amcl_pose
+
+  # ─────────────── Robot 23 ───────────────
+  # 센서: 23 → 26
+  /scan:
+    type: sensor_msgs/msg/LaserScan
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/scan
+
+  /camera/image_raw:
+    type: sensor_msgs/msg/Image
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/camera/image_raw
+
+  # 명령: 26 → 23
+  /robot23/cmd_vel:
+    type: geometry_msgs/msg/Twist
+    from_domain: 26
+    to_domain: 23
+    remap: /cmd_vel
+
+  /robot_description:
+    type: std_msgs/msg/String
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/robot_description
+
+  /joint_states:
+    type: sensor_msgs/msg/JointState
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/joint_states
+
+  /tf:
+    type: tf2_msgs/msg/TFMessage
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/tf
+
+  /map:
+    type: nav_msgs/msg/OccupancyGrid
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/map
+
+  /odom:
+    type: nav_msgs/msg/Odometry
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/odom
+
+  /amcl_pose:
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    from_domain: 23
+    to_domain: 26
+    remap: /robot23/amcl_pose
+
+
+  # ─────────────── Robot 25 ───────────────
+  /arduino/data:
+    type: std_msgs/msg/String
+    from_domain: 25
+    to_domain: 26
+
+  /pc_to_pi_cmd:
+    type: std_msgs/msg/String
+    from_domain: 26
+    to_domain: 25
