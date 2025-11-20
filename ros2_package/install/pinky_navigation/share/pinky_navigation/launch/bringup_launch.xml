@@ -1,0 +1,65 @@
+<?xml version='1.0'?>
+<launch>
+    <set_env name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
+
+    <!-- ===== 공통 인자 ===== -->
+    <arg name="namespace" default=""/>
+    <arg name="map" default="$(find-pkg-share pinky_navigation)/map/pinklab.yaml"/>
+    <arg name="use_sim_time" default="True"/> <!--  시뮬 환경이면 True -->
+    <arg name="params_file" default="$(find-pkg-share pinky_navigation)/params/nav2_params.yaml"/>
+    <arg name="autostart" default="True"/> <!--  반드시 True -->
+    <arg name="container_name" default="nav2_container"/>
+    <arg name="use_composition" default="True"/>
+    <arg name="use_respawn" default="False"/>
+    <arg name="log_level" default="info"/>
+
+    <!--  AMCL 포함 명시 -->
+    <arg name="lifecycle_nodes_local" default="['map_server', 'amcl']"/>
+    <arg name="lifecycle_nodes_nav" default="['controller_server',
+                       'planner_server',
+                       'behavior_server',
+                       'bt_navigator',
+                       'waypoint_follower',
+                       'velocity_smoother']"/>
+
+    <group>
+        <push-ros-namespace namespace="$(var namespace)"/>
+
+        <!-- Nav2 container -->
+        <node pkg="rclcpp_components" exec="component_container_isolated"
+              name='$(var container_name)' output="screen"
+              args="--ros-args --log-level $(var log_level)">
+            <param from="$(var params_file)"/>
+            <param name='map' value="$(var map)"/>
+            <param name='autostart' value="$(var autostart)"/>
+            <param name='use_sim_time' value="$(var use_sim_time)"/>
+            
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+
+        <!--  Localization: AMCL이 반드시 실행되도록 -->
+        <include file="$(find-pkg-share pinky_navigation)/launch/localization_launch.xml">
+            <arg name="params_file" value="$(var params_file)"/>
+            <arg name="map" value="$(var map)"/>
+            <arg name="use_sim_time" value="$(var use_sim_time)"/>
+            <arg name="autostart" value="True"/> <!--  명시적으로 True -->
+            <arg name="use_composition" value="$(var use_composition)"/>
+            <arg name="use_respawn" value="$(var use_respawn)"/>
+            <arg name="container_name" value="$(var container_name)"/>
+            <arg name='lifecycle_nodes' value="['map_server', 'amcl']"/> <!--  강제 지정 -->
+        </include>
+
+        <!-- Nav2 navigation -->
+        <include file="$(find-pkg-share pinky_navigation)/launch/navigation_launch.xml">
+            <arg name="params_file" value="$(var params_file)"/>
+            <arg name="use_sim_time" value="$(var use_sim_time)"/>
+            <arg name="autostart" value="$(var autostart)"/>
+            <arg name="use_composition" value="$(var use_composition)"/>
+            <arg name="use_respawn" value="$(var use_respawn)"/>
+            <arg name="container_name" value="$(var container_name)"/>
+            <arg name='lifecycle_nodes' value="$(var lifecycle_nodes_nav)"/>
+        </include>
+    </group>
+</launch>
+<!-- /home/lim/pinky_pro/pinky_navigation/launch/bringup_launch.xml -->

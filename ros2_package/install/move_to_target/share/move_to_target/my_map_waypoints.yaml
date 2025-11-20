@@ -1,0 +1,35 @@
+# /home/lim/pinky/src/move_to_target/my_map_waypoints.yaml
+
+waypoints:
+  - name: "원점"
+    pose:
+      position: {x: 0.0, y: 0.0}
+      yaw: 0
+    neighbors: ["3번", "4번"]
+  - name : "1번"
+    pose:
+      position: {x: 1.32, y: 2.44}
+      yaw: 0
+    neighbors: ["2번", "5번"]
+  - name: "2번"
+    pose:
+      position: {x: 1.28, y: 1.509}
+      yaw: 180
+    neighbors: ["1번", "3번"]
+  - name: "3번"
+    pose:
+      position: {x: 1.2, y: -0.023}
+      yaw: 180
+    neighbors: ["2번", "원점"]
+  - name: "4번"
+    pose:
+      position: {x: -0.032, y: 1.43}
+      yaw: 270
+    neighbors: ["원점", "5번"]
+  - name: "5번"
+    pose:
+      position: {x: -0.06, y: 2.47}
+      yaw: 0
+    neighbors: ["4번"]
+
+
