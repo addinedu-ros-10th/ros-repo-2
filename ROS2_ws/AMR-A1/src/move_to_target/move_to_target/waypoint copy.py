@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, Twist
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from std_msgs.msg import String
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from collections import deque
@@ -15,56 +15,6 @@ def get_quaternion_from_yaw(yaw_deg: float):
     yaw = math.radians(yaw_deg)
     q = tf_transformations.quaternion_from_euler(0, 0, yaw)
     return q
-
-
-class PID:
-    def __init__(self, kp, ki, kd, output_limit=None, integral_limit=None):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.output_limit = output_limit
-        self.integral_limit = integral_limit
-
-        self.integral = 0.0
-        self.prev_error = 0.0
-        self.prev_time = None
-
-    def reset(self):
-        self.integral = 0.0
-        self.prev_error = 0.0
-        self.prev_time = None
-
-    def step(self, error, current_time):
-        if self.prev_time is None:
-            dt = 0.0
-        else:
-            dt = (current_time - self.prev_time).nanoseconds * 1e-9
-
-        # P
-        p = self.kp * error
-
-        # I
-        if dt > 0.0:
-            self.integral += error * dt
-        if self.integral_limit is not None:
-            self.integral = max(min(self.integral, self.integral_limit), -self.integral_limit)
-        i = self.ki * self.integral
-
-        # D
-        if dt > 0.0:
-            d_err = (error - self.prev_error) / dt
-        else:
-            d_err = 0.0
-        d = self.kd * d_err
-
-        u = p + i + d
-
-        if self.output_limit is not None:
-            u = max(min(u, self.output_limit), -self.output_limit)
-
-        self.prev_error = error
-        self.prev_time = current_time
-        return u
 
 
 class WaypointRTRController(Node):
@@ -91,8 +41,6 @@ class WaypointRTRController(Node):
         # === Publishers ===
         self.current_wp_pub = self.create_publisher(String, '/current_waypoint', 10)
         self.arrival_pub = self.create_publisher(String, '/arrival_notification', 10)
-        # PID 정밀 제어용 속도 출력
-        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         # === Load Waypoints ===
         package_dir = get_package_share_directory('move_to_target')
@@ -113,9 +61,9 @@ class WaypointRTRController(Node):
             self.get_logger().error(f"❌ Waypoint load failed: {e}")
             self.waypoints = {}
 
-        # === Graph 구조 만들기 ===
+        # === Graph 구조 만들기 (원래 방식 유지) ===
         self.graph = {}
-        # arrival_yaw 정보만 따로 저장하는 딕셔너리
+        # arrival_yaw 정보만 따로 저장하는 딕셔너리 추가
         self.arrival_yaws = {}
 
         for name, wp in self.waypoints.items():
@@ -156,37 +104,16 @@ class WaypointRTRController(Node):
 
         # === State ===
         self.current_position = None
-        self.current_pose = None  # orientation까지 포함
         self.current_path = deque()
         self.final_goal_name = None
         self.moving = False
 
-        # === 정밀 제어(PID) 상태 ===
-        self.precision_mode = False
-        self.precision_target = None  # (x, y, yaw_deg) in map frame
-
-        # PID 제어기 (초기값, 이후 튜닝 필요)
-        self.lin_pid = PID(kp=0.8, ki=0.0, kd=0.0, output_limit=0.1)   # m/s
-        self.ang_pid = PID(kp=1.5, ki=0.0, kd=0.0, output_limit=0.6)   # rad/s
-
         # 주기 상태 갱신 타이머
-        self.create_timer(0.1, self.update)  # PID 반응 위해 0.1s로 약간 빠르게
-
-    # ==================== 유틸 ====================
-
-    @staticmethod
-    def normalize_angle(a):
-        """[-pi, pi] 범위로 각도 정규화"""
-        while a > math.pi:
-            a -= 2.0 * math.pi
-        while a < -math.pi:
-            a += 2.0 * math.pi
-        return a
+        self.create_timer(0.3, self.update)
 
     # ==================== 콜백들 ====================
 
     def pose_callback(self, msg: PoseWithCovarianceStamped):
-        self.current_pose = msg.pose.pose
         self.current_position = msg.pose.pose.position
 
     def selected_waypoint_callback(self, msg: String):
@@ -211,8 +138,6 @@ class WaypointRTRController(Node):
         self.current_path = deque(path)
         self.final_goal_name = target_name
         self.moving = False
-        self.precision_mode = False
-        self.precision_target = None
 
         self.get_logger().info(f"🗺️ Planned path: {list(self.current_path)}")
 
@@ -236,11 +161,6 @@ class WaypointRTRController(Node):
         # 현재 위치한 waypoint 이름 퍼블리시
         self.current_wp_pub.publish(String(data=self.current_wp_name))
 
-        # === 정밀 제어 모드 우선 처리 ===
-        if self.precision_mode:
-            self.run_precision_control()
-            return
-
         # 아직 할 일이 없으면 리턴
         if not self.current_path and not self.moving:
             return
@@ -251,25 +171,21 @@ class WaypointRTRController(Node):
                 return  # 아직 도착 안함
 
             result = self.nav.getResult()
-            # 일단 현재 목표 waypoint 이름만 확인 (바로 popleft 하지 않음)
-            arrived_wp = self.current_path[0]
-
+            arrived_wp = self.current_path.popleft()
             if result == TaskResult.SUCCEEDED:
-                self.get_logger().info(f"✅ Reached (coarse) {arrived_wp}")
+                self.get_logger().info(f"✅ Reached {arrived_wp}")
                 self.current_wp_name = arrived_wp
             else:
                 self.get_logger().warn(f"⚠️ Nav2 failed at {arrived_wp}")
                 self.current_wp_name = arrived_wp  # 일단 도달한 것으로 처리
 
-            # 이 waypoint는 coarse level에서 도달한 것으로 보고 path에서 제거
-            self.current_path.popleft()
             self.moving = False
 
-            # 최종 목적지 도착 처리 (coarse)
+            # 최종 목적지 도착 처리
             if not self.current_path and arrived_wp == self.final_goal_name:
-                self.get_logger().info(f"🏁 Coarse final destination reached: {arrived_wp}")
-                # 여기서 바로 arrival_pub 하지 않고, PID 정밀 제어 모드로 진입
-                self.start_precision_mode(arrived_wp)
+                self.arrival_pub.publish(String(data=arrived_wp))
+                self.get_logger().info(f"🏁 Final destination reached: {arrived_wp}")
+                self.final_goal_name = None
 
             return
 
@@ -287,13 +203,11 @@ class WaypointRTRController(Node):
         goal.pose.position.x = next_wp['pose']['position']['x']
         goal.pose.position.y = next_wp['pose']['position']['y']
 
-        # arrival_yaw 사용 (기존 yaw 대신)
+        # 🔥 arrival_yaw 사용 (기존 yaw 대신)
         arrival_yaw_key = (self.current_wp_name, next_wp_name)
         if arrival_yaw_key in self.arrival_yaws:
             yaw_deg = self.arrival_yaws[arrival_yaw_key]
-            self.get_logger().info(
-                f"🎯 Using arrival_yaw: {yaw_deg}° for {self.current_wp_name} → {next_wp_name}"
-            )
+            self.get_logger().info(f"🎯 Using arrival_yaw: {yaw_deg}° for {self.current_wp_name} → {next_wp_name}")
         else:
             yaw_deg = next_wp['pose'].get('yaw', 0.0)
             self.get_logger().info(f"ℹ️ Using default yaw: {yaw_deg}° for {next_wp_name}")
@@ -304,105 +218,10 @@ class WaypointRTRController(Node):
         goal.pose.orientation.z = q[2]
         goal.pose.orientation.w = q[3]
 
-        self.get_logger().info(
-            f"🚀 Sending Nav2 goal to '{next_wp_name}' "
-            f"({goal.pose.position.x:.2f}, {goal.pose.position.y:.2f}, yaw={yaw_deg:.1f}°)"
-        )
+        self.get_logger().info(f"🚀 Sending Nav2 goal to '{next_wp_name}' "
+                               f"({goal.pose.position.x:.2f}, {goal.pose.position.y:.2f}, yaw={yaw_deg:.1f}°)")
         self.nav.goToPose(goal)
         self.moving = True
-
-    # ==================== 정밀 제어 (PID) ====================
-
-    def start_precision_mode(self, wp_name):
-        wp = self.waypoints.get(wp_name)
-        if not wp:
-            self.get_logger().warn(f"⚠️ precision_mode: waypoint '{wp_name}' not found")
-            return
-
-        x = wp['pose']['position']['x']
-        y = wp['pose']['position']['y']
-        yaw_deg = wp['pose'].get('yaw', 0.0)
-
-        self.precision_target = (x, y, yaw_deg)
-        self.lin_pid.reset()
-        self.ang_pid.reset()
-        self.precision_mode = True
-
-        self.get_logger().info(
-            f"🎯 Start precision mode for '{wp_name}' at "
-            f"({x:.3f}, {y:.3f}, yaw={yaw_deg:.1f}°)"
-        )
-
-    def run_precision_control(self):
-        if self.current_pose is None or self.precision_target is None:
-            return
-
-        target_x, target_y, target_yaw_deg = self.precision_target
-
-        # 현재 위치
-        cur_x = self.current_pose.position.x
-        cur_y = self.current_pose.position.y
-
-        # 현재 yaw 추출 (rad)
-        q = self.current_pose.orientation
-        quat = (q.x, q.y, q.z, q.w)
-        _, _, cur_yaw = tf_transformations.euler_from_quaternion(quat)
-
-        # 목표까지의 오차 (map 기준)
-        dx = target_x - cur_x
-        dy = target_y - cur_y
-
-        # map -> base_link 좌표 변환 (로봇 기준 전/좌)
-        cos_y = math.cos(cur_yaw)
-        sin_y = math.sin(cur_yaw)
-        ex =  cos_y * dx + sin_y * dy   # forward (+x)
-        ey = -sin_y * dx + cos_y * dy   # left (+y)
-
-        # 거리, 각도 오차
-        dist = math.sqrt(ex * ex + ey * ey)
-        target_yaw = math.radians(target_yaw_deg)
-        yaw_err = self.normalize_angle(target_yaw - cur_yaw)  # [-pi, pi]
-
-        # 정밀 기준 (튜닝해서 쓰면 됨)
-        pos_tol = 0.02                  # 2 cm
-        yaw_tol = math.radians(2.0)     # 2 deg
-
-        # 충분히 가까우면 종료
-        if dist < pos_tol and abs(yaw_err) < yaw_tol:
-            twist = Twist()  # 0 속도
-            self.cmd_vel_pub.publish(twist)
-            self.precision_mode = False
-            self.precision_target = None
-
-            # 최종 도착 알림
-            if self.final_goal_name is not None:
-                self.arrival_pub.publish(String(data=self.final_goal_name))
-                self.get_logger().info(
-                    f"✅ Precision destination reached: {self.final_goal_name}"
-                )
-                self.final_goal_name = None
-            else:
-                self.get_logger().info("✅ Precision alignment done (no final_goal_name).")
-            return
-
-        now = self.get_clock().now()
-
-        # 선속도: 전방 오차(ex)에 대해서만 PID
-        v = self.lin_pid.step(ex, now)
-
-        # 각속도: yaw_err에 대한 PID
-        w = self.ang_pid.step(yaw_err, now)
-
-        # 안전을 위한 추가 제한
-        max_v = 0.1   # m/s
-        max_w = 0.6   # rad/s
-        v = max(min(v, max_v), -max_v)
-        w = max(min(w, max_w), -max_w)
-
-        twist = Twist()
-        twist.linear.x = v
-        twist.angular.z = w
-        self.cmd_vel_pub.publish(twist)
 
     # ==================== BFS 경로 계산 ====================
 

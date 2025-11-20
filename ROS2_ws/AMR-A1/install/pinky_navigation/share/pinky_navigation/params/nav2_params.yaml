@@ -38,8 +38,8 @@ amcl:
     z_short: 0.05
     scan_topic: scan
     set_initial_pose: true
-    initial_pose: [0, 0, 0]
-
+    # initial_pose: [0, 0, 0]
+    initial_pose: [-0.388, 0.5762, 0.0]
 bt_navigator:
   ros__parameters:
     global_frame: map
@@ -82,8 +82,8 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.15  # 0.25 → 0.15로 줄임 (더 정확한 도착)
-      yaw_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.15  # 0.25 → 0.15로 줄임 (더 정확한 도착) -> 0.05로 설정해봄
+      yaw_goal_tolerance: 0.25  # 0.25 -> 0.0872665
     
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
