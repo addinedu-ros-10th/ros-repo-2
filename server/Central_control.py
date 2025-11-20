@@ -9,7 +9,10 @@ import pandas as pd
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
 PACKET_SIZE = 16  # 1B id + 2B sensor + 12B xyz + 1B led
-
+HOST = "192.168.2.7"      # 서버 IP 192.168.2.7
+PORT_ARDUINO = 2025     # Arduino TCP 서버 포트
+PORT_AI = 2222         # AI TCP 서버 포트   
+STOP_FLAG = False
 
 class ROSTCPBridge(Node, QObject):
     robot_signal = pyqtSignal(int, float, float)  # 클래스 속성으로 정의
@@ -21,10 +24,6 @@ class ROSTCPBridge(Node, QObject):
 
         # 직원 데이터프레임 초기화
         self.staff_list = pd.DataFrame(columns=["name", "phone", "date", "uid"])
-
-        # staff 등록 신호 연결
-        self.signaller.staff_list_add.connect(self.rfid_callback)
-        print("서버: staff_list_add 시그널 연결 완료")
 
         self.create_subscription(
             PoseWithCovarianceStamped,
@@ -45,14 +44,10 @@ class ROSTCPBridge(Node, QObject):
             10
         )
 
-        self.host = "192.168.0.184"   # 서버 IP 192.168.2.7
-        self.port = 2025
-        self.stop_flag = False
-
-        tcp_thread = threading.Thread(target=self.start_tcp_server, daemon=True)
+        tcp_thread = threading.Thread(target=self.Arduino_tcp_server, daemon=True)
         tcp_thread.start()
 
-        print(f"[Bridge 시작] ROS2 수신 + TCP 수신 동시 실행 중 (포트 {self.port})")
+        print(f"[Bridge 시작] ROS2 수신 + TCP 수신 동시 실행 중 (포트 {PORT_ARDUINO})")
 
     # ---------------- ROS 콜백 ----------------
 
@@ -78,23 +73,23 @@ class ROSTCPBridge(Node, QObject):
     def robot3_callback(self, msg: PoseWithCovarianceStamped):
         self._emit_robot(domain_id=23, msg=msg)
 
-    def start_tcp_server(self):
+    def Arduino_tcp_server(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 재사용 옵션
-        server.bind((self.host, self.port))
+        server.bind((HOST,  PORT_ARDUINO))
         server.listen(1)
-        print(f"[TCP 서버 대기 중] {self.host}:{self.port}")
+        print(f"[Arduion TCP 서버 대기 중] {HOST}:{PORT_ARDUINO}")
 
-        while not self.stop_flag:   # 서버 전체 루프
-            print("[TCP 연결 대기 중...]")
+        while not STOP_FLAG:   # 서버 전체 루프
+            print("[Arduion 연결 대기 중...]")
             conn, addr = server.accept()
-            print(f"[TCP 연결 수락] 클라이언트: {addr}")
+            print(f"[Arduion 연결 수락] 클라이언트: {addr}")
 
             try:
                 while True:
                     data = conn.recv(1024)
                     if not data:
-                        print("[TCP 연결 종료 감지]")
+                        print("[Arduion 연결 종료 감지]")
                         break
 
                     msg = data.decode()
@@ -110,29 +105,84 @@ class ROSTCPBridge(Node, QObject):
                             # 원하는 리더기 번호만 필터링 (예: "RFID 1번")
                             if reader_info == "RFID 1번":
                                 self.signaller.staff_rfid_signal_1.emit(uid_str)
+                                self.signaller.staff_rfid_signal_2.emit(uid_str)
+                                self.signaller.staff_rfid_signal_3.emit(uid_str)
+                            
+                            if reader_info == "RFID 2번":
+                                self.signaller.staff_rfid_signal_2.emit(uid_str)
+                            
+                            if reader_info == "RFID 3번":
+                                self.signaller.staff_rfid_signal_3.emit(uid_str)
 
                         except Exception as e:
                             print(f"[파싱 오류] {e}")
 
             except Exception as e:
-                print(f"[TCP 오류] {e}")
+                print(f"[Arduion 연결 오류] {e}")
             finally:
                 conn.close()
-                print("[TCP 연결 닫힘]")
+                print("[Arduion 연결 닫힘]")
 
         server.close()
-        print("[TCP 서버 종료]")
+        print("[Arduion 연결 종료]")
 
-    def rfid_callback(self, staff_data):
-        print("서버: rfid_callback 호출됨:", staff_data)
-        # # 직원 데이터프레임에 새 직원 추가
-        # self.staff_list = pd.concat([self.staff_list, pd.DataFrame([staff_data])], ignore_index=True)
-        # print("서버: 직원 등록 완료. 현재 직원 목록:\n", self.staff_list)
+class AIServerTCP:
+    def __init__(self, host= HOST, port=PORT_AI):
+        self.host = host
+        self.port = port
+        self.stop_flag = False
 
-        # # GUI로 업데이트된 직원 목록 전송
-        # self.signaller.staff_list_signal.emit(self.staff_list)  # DataFrame 전달
+    def start_server(self):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((self.host, self.port))
+        server.listen(1)
+        print(f"[AI TCP 서버 대기 중] {self.host}:{self.port}")
+
+        while not self.stop_flag:
+            print("[AI TCP 연결 대기 중...]")
+            conn, addr = server.accept()
+            print(f"[AI TCP 연결 수락] 클라이언트: {addr}")
+
+            try:
+                while True:
+                    data = conn.recv(1024)
+                    if not data:
+                        print("[AI TCP 연결 종료 감지]")
+                        break
+
+                    msg = data.decode().strip()
+                    print(f"[AI 서버 메시지 수신] {msg}")
+
+                    # 여기서 원하는 처리 추가 가능
+                    # 예: 특정 키워드에 따라 다른 동작 수행
+                    if msg.startswith("CMD"):
+                        print(f"→ 명령어 처리: {msg}")
+                    elif msg.startswith("LOG"):
+                        print(f"→ 로그 메시지: {msg}")
+                    else:
+                        print(f"→ 일반 메시지: {msg}")
+
+            except Exception as e:
+                print(f"[AI TCP 오류] {e}")
+            finally:
+                conn.close()
+                print("[AI TCP 연결 닫힘]")
+
+        server.close()
+        print("[AI TCP 서버 종료]")
+
+class DummySignaller(QObject):
+    robot_signal = pyqtSignal(int, float, float)
+    staff_rfid_signal_1 = pyqtSignal(str)
+    staff_rfid_signal_2 = pyqtSignal(str)
+    staff_rfid_signal_3 = pyqtSignal(str)
 
 def main(signaller):
+
+    # 더미 Signaller 생성
+    signaller = DummySignaller()
+
     rclpy.init()
     node = ROSTCPBridge(signaller)
 
@@ -147,8 +197,20 @@ def main(signaller):
             rclpy.shutdown()
             
     # ROS2 스레드 실행
-    ros_thread = threading.Thread(target=ros_spin, daemon=True)
+    ros_thread = threading.Thread(target=ros_spin)
     ros_thread.start()
+
+    # AI TCP 서버 스레드
+    ai_server = AIServerTCP()
+    ai_thread = threading.Thread(target=ai_server.start_server)
+    ai_thread.start()
+
+    # 메인 스레드에서 두 스레드가 종료될 때까지 대기
+    try:
+        ros_thread.join()
+        ai_thread.join()
+    except KeyboardInterrupt:
+        print("[메인 종료]")
 
 if __name__ == "__main__":
     main()

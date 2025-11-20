@@ -24,8 +24,12 @@ MFRC522 mfrc522_3(SS_PIN_3, RST_PIN_3);
 
 int val1, val2, val3, val4;
 
+bool rfid1_present = false;
+bool rfid2_present = false;
+bool rfid3_present = false;
+
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial);
 
   SPI.begin();
@@ -42,38 +46,65 @@ void setup() {
 void loop() {
   // === RFID 1 ===
   if (mfrc522_1.PICC_IsNewCardPresent() && mfrc522_1.PICC_ReadCardSerial()) {
-    Serial.write(0xAA);
-    Serial.write(0x11);
-    for (byte i = 0; i < mfrc522_1.uid.size; i++)
-      Serial.write(mfrc522_1.uid.uidByte[i]);
-    Serial.write(0x55);
+    if (!rfid1_present) {
+      rfid1_present = true;
+      Serial.write(0xAA);
+      Serial.write(0x11); // 태그 인식됨
+      for (byte i = 0; i < mfrc522_1.uid.size; i++)
+        Serial.write(mfrc522_1.uid.uidByte[i]);
+      Serial.write(0x55);
+    }
     mfrc522_1.PICC_HaltA();
     mfrc522_1.PCD_StopCrypto1();
-    delay(200);
+  } else {
+    if (rfid1_present) {
+      rfid1_present = false;
+      // Serial.write(0xAA);
+      // Serial.write(0x21); // 태그 제거됨
+      // Serial.write(0x55);
+    }
   }
 
   // === RFID 2 ===
   if (mfrc522_2.PICC_IsNewCardPresent() && mfrc522_2.PICC_ReadCardSerial()) {
-    Serial.write(0xAA);
-    Serial.write(0x12);
-    for (byte i = 0; i < mfrc522_2.uid.size; i++)
-      Serial.write(mfrc522_2.uid.uidByte[i]);
-    Serial.write(0x55);
+    if (!rfid2_present) {
+      rfid2_present = true;
+      Serial.write(0xAA);
+      Serial.write(0x12);
+      for (byte i = 0; i < mfrc522_2.uid.size; i++)
+        Serial.write(mfrc522_2.uid.uidByte[i]);
+      Serial.write(0x55);
+    }
     mfrc522_2.PICC_HaltA();
     mfrc522_2.PCD_StopCrypto1();
-    delay(200);
+  } else {
+    if (rfid2_present) {
+      rfid2_present = false;
+      // Serial.write(0xAA);
+      // Serial.write(0x22); // 태그 제거됨
+      // Serial.write(0x55);
+    }
   }
 
   // === RFID 3 ===
   if (mfrc522_3.PICC_IsNewCardPresent() && mfrc522_3.PICC_ReadCardSerial()) {
-    Serial.write(0xAA);
-    Serial.write(0x13);
-    for (byte i = 0; i < mfrc522_3.uid.size; i++)
-      Serial.write(mfrc522_3.uid.uidByte[i]);
-    Serial.write(0x55);
+    if (!rfid3_present) {
+      rfid3_present = true;
+      Serial.write(0xAA);
+      Serial.write(0x13);
+      for (byte i = 0; i < mfrc522_3.uid.size; i++)
+        Serial.write(mfrc522_3.uid.uidByte[i]);
+      Serial.write(0x55);
+    }
     mfrc522_3.PICC_HaltA();
     mfrc522_3.PCD_StopCrypto1();
-    delay(200);
+  } else {
+    if (rfid3_present) {
+      rfid3_present = false;
+      // Serial.write(0xAA);
+      // Serial.write(0x23); // 태그 제거됨
+      // Serial.write(0x55);
+    }
   }
 
   // === 가스 센서 ===
@@ -98,6 +129,5 @@ void loop() {
   Serial.write(packet);
   Serial.write(0x55);
 
-  delay(200);
+  delay(100);
 }
-

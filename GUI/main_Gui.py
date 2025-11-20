@@ -27,6 +27,8 @@ from GUI.manual_widget import ManualControlWidget
 import os
 import yaml
 
+STAFF_CSV_PATH = "./GUI/data/staff_list.csv"
+
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
     """SLAM으로 만든 map(.yaml + .pgm) 또는 커스텀 PNG 위에 로봇 위치를 표시하는 위젯"""
@@ -373,6 +375,12 @@ if __name__ == "__main__":
     window = MainWindow(signaller)
     window.show()
 
+    loaded_df = pd.read_csv(STAFF_CSV_PATH)
+    window.staff_widget.update_log_table(loaded_df)
+
+    # 직원 테이블 프레임 초기화
+    df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+
     # 3) 시그널 연결: ROS → GUI
     def update_gui(domain_id, x, y):
         window.map_widget.set_robot(domain_id, x, y)
@@ -382,22 +390,24 @@ if __name__ == "__main__":
 
     # 4) (선택) 입/출고 로그가 개별 연결이 필요하면 여기서 연결 가능
     # 예: signaller.io_logs_signal.connect(window.io_widget.update_logs)
-    window.io_widget.set_products(["선택하세요.", "화장품", "제품B", "제품C"])
+    window.io_widget.set_products(["선택하세요.", "화장품", "전자 부품", "인형", "공구"])
     if hasattr(signaller, "io_logs_signal"):
         try:
             signaller.io_logs_signal.connect(window.io_widget.update_logs)
         except Exception:
             pass
 
-    # 5) staff_list_add 판다스 프레임 저장용 시그널 연결
-    df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
-
+    # 5) staff_list_add 판다스 프레임 저장용 연결
     def update_staff_list(new_entry):
         global df
         df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
 
+        # CSV 파일로 저장
+        df.to_csv(STAFF_CSV_PATH, index=False, encoding="utf-8-sig")
+        print(f"CSV 저장 완료: {STAFF_CSV_PATH}")
         # StaffWidget 테이블 갱신 호출
-        window.staff_widget.update_log_table(df)
+        loaded_df = pd.read_csv(STAFF_CSV_PATH)
+        window.staff_widget.update_log_table(loaded_df)
 
     if hasattr(signaller, "staff_list_add"):
         try:
@@ -412,8 +422,13 @@ if __name__ == "__main__":
             df = df.drop(index=row).reset_index(drop=True)
             print(f"GUI: 직원 데이터프레임에서 행 {row} 삭제\n", df)
 
-            # StaffWidget 테이블 갱신 호출
-            window.staff_widget.update_log_table(df)
+            # CSV 파일로 저장
+            df.to_csv(STAFF_CSV_PATH, index=False, encoding="utf-8-sig")
+            print(f"CSV 저장 완료: {STAFF_CSV_PATH}")
+
+            # CSV 파일 다시 읽어서 StaffWidget 테이블 갱신
+            loaded_df = pd.read_csv(STAFF_CSV_PATH)
+            window.staff_widget.update_log_table(loaded_df)
 
     if hasattr(signaller, "staff_delete_row"):
         try:

@@ -112,7 +112,7 @@ class StaffWidget(QWidget):
         self.waiting_for_rfid = False
 
         name = self.name_edit.text()
-        phone = self.phone_edit.text()[-4:]  # 뒤 4자리
+        phone = self.phone_edit.text()    # 뒤 4자리
         date = self.date_edit.date().toString("yyyy-MM-dd")
 
         # GUI에서 서버로 직원 데이터 전달
@@ -125,12 +125,6 @@ class StaffWidget(QWidget):
         self.phone_edit.clear()
         self.date_edit.setDate(QDate.currentDate())
 
-        # row = self.log_table.rowCount()
-        # self.log_table.insertRow(row)
-        # self.log_table.setItem(row, 0, QTableWidgetItem(name))
-        # self.log_table.setItem(row, 1, QTableWidgetItem(phone))
-        # self.log_table.setItem(row, 2, QTableWidgetItem(date))
-        # self.log_table.setItem(row, 3, QTableWidgetItem(uid))
 
     def on_delete(self):
         selected_rows = set()
@@ -161,10 +155,12 @@ class StaffWidget(QWidget):
         # staff_list = [(name, phone, date, uid), ...]
         print("수신 완료")
         self.log_table.setRowCount(0)  # 기존 내용 지우기
+        print(staff_list["phone"])
         for _, row in staff_list.iterrows():
             r = self.log_table.rowCount()
             self.log_table.insertRow(r)
             self.log_table.setItem(r, 0, QTableWidgetItem(row["name"]))
-            self.log_table.setItem(r, 1, QTableWidgetItem(row["phone"]))
+            self.log_table.setItem(r, 1, QTableWidgetItem(str(row["phone"])))
             self.log_table.setItem(r, 2, QTableWidgetItem(row["date"]))
             self.log_table.setItem(r, 3, QTableWidgetItem(row["uid"]))
+            
