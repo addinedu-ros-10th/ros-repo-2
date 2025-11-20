@@ -6,49 +6,43 @@ waypoints:
       position: {x: 0.0, y: 0.0}
       yaw: 0
     neighbors:
-      - name: "3번"
-        arrival_yaw: 0
+      
       - name: "4번"
         arrival_yaw: 90   # 원점 → 4번 이동 시 도착 yaw
       - name: "7번"
+        arrival_yaw: 0
+    
+     
+
+  - name: "1번"
+    pose:
+      position: {x: 1.19, y: 0.6}
+      yaw: 0
+    neighbors:
+      - name: "2번"
         arrival_yaw: 90
-
-  # - name: "1번"
-  #   pose:
-  #     position: {x: 1.32, y: 2.44}
-  #     yaw: 0
-  #   neighbors:
-  #     - name: "2번"
-  #       arrival_yaw: 180
-  #     - name: "9번"
-  #       arrival_yaw: 180
-
+      - name: "14번"
+        arrival_yaw: 180
   - name: "2번"
     pose:
-      position: {x: 1.28, y: 1.509}
+      position: {x: 1.2, y: 1.509}
       yaw: 180
     neighbors:
-      - name: "1번"
-        arrival_yaw: 180
       - name: "3번"
         arrival_yaw: 180
-      - name: "6번"
-        arrival_yaw: 180     # ✅ 원점 → 2번 경로 방지용: 직접 연결은 있지만 BFS 탐색에서는 3번을 통해 감
-      - name: "입고"
+      - name: "1번"
         arrival_yaw: 180
-      - name: "9번"
-        arrival_yaw: 90
-  # - name: "3번"
-  #   pose:
-  #     position: {x: 1.0, y: 0.123}
-  #     yaw: 90
-  #   neighbors:
-  #     - name: "6번"
-  #       arrival_yaw: 180
-  #     - name: "원점"
-  #       arrival_yaw: 0
-  #     - name: "2번"
-  #       arrival_yaw: 90    
+
+  - name: "3번"
+    pose:
+      position: {x: 1.09, y: 2.4}
+      yaw: 200
+    neighbors:
+      - name: "2번"
+        arrival_yaw: 270
+      - name: "8번"  
+        arrival_yaw: 90           
+
 
   - name: "4번"
     pose:
@@ -82,44 +76,44 @@ waypoints:
   #     - name: "2번"
   #       arrival_yaw: 90      
 
+        
   - name: "7번"
     pose:
-      position:
-        x: -0.097
-        y: 0.641
-        z: 0.0
-      yaw: 315
+      position: {x: 0.1, y: 0.641}
+      yaw: 270
     neighbors:
+      - name: "원점"
+        arrival_yaw: 90
       - name: "4번"
         arrival_yaw: 90
-      - name: "원점"
-        arrival_yaw: 0
-      - name: "입고"
-        arrival_yaw: 180
+      - name: "14번"
+        arrival_yaw: 0    
 
   - name: "8번"
     pose:
-      position: {x: 0.7, y: 2.723}
+      position: {x: 0.65, y: 2.723}
       yaw: 0
     neighbors:
       - name: "9번"
         arrival_yaw: 270
+      - name: "2번"
+        arrival_yaw: 270
 
-  - name: "9번"
-    pose:
-      position: {x: 0.77, y: 2.501}
-      yaw: 0
-    neighbors:
-      - name: "1번"
-        arrival_yaw: 270
-      - name: "8번"
-        arrival_yaw: 90
-      - name: "10번"
-        arrival_yaw: 270
-      - name: "12번"
-        arrival_yaw: 180
-      - name: "13번"
-        arrival_yaw: 270
+  # - name: "9번"
+  #   pose:
+  #     position: {x: 0.77, y: 2.501}
+  #     yaw: 0
+  #   neighbors:
+  #     - name: "1번"
+  #       arrival_yaw: 270
+  #     - name: "8번"
+  #       arrival_yaw: 90
+  #     - name: "10번"
+  #       arrival_yaw: 270
+  #     - name: "12번"
+  #       arrival_yaw: 180
+  #     - name: "13번"
+  #       arrival_yaw: 270
 
   - name: "10번"
     pose:
@@ -160,13 +154,23 @@ waypoints:
         arrival_yaw: 90
       - name: "9번"
         arrival_yaw: 0
-
-  - name: "입고"
+  
+  - name: "14번"
     pose:
-      position: {x: 0.623, y: 0.559}
-      yaw: 180
+      position: {x: 0.8, y: 0.53}
+      yaw: 0
     neighbors:
-      - name: "2번"
+      - name: "1번"
         arrival_yaw: 90
       - name: "7번"
         arrival_yaw: 180
+
+  # - name: "입고"
+  #   pose:
+  #     position: {x: 0.623, y: 0.559}
+  #     yaw: 180
+  #   neighbors:
+  #     - name: "2번"
+  #       arrival_yaw: 90
+  #     - name: "7번"
+  #       arrival_yaw: 180
