@@ -138,107 +138,59 @@ class IOWidget(QWidget):
         if not self.waiting_for_rfid:
             return
 
-        # 직원 리스트에서 UID 검색
         match = self.staff_list[self.staff_list["uid"] == uid]
-
         if match.empty:
             QMessageBox.warning(self, "RFID 오류", "등록되지 않은 RFID입니다.")
             return
 
-        # 인식된 직원 정보
         staff_name = match.iloc[0]["name"]
+        input_name = self._pending_confirmer
 
-        # 입력창의 확인자 이름
-        input_name = self.confirmer_edit.text().strip()
-
-        # 이름이 직원 리스트에 없으면 무조건 오류 처리
         target = self.staff_list[self.staff_list["name"] == input_name]
         if target.empty:
-            QMessageBox.warning(self, "오류", "입력한 확인자 이름이 직원 목록에 없습니다.")
+            QMessageBox.warning(self, "오류", "확인자 이름이 직원 목록에 없습니다.")
             return
 
-        # UID가 입력한 이름과 연결된 직원인지 검사
         correct_uid = target.iloc[0]["uid"]
 
         if uid != correct_uid:
-            QMessageBox.warning(
-                self,
-                "다른 직원 태그 감지",
-                f"'{input_name}' 님의 RFID가 아닙니다.\n"
-                f"다시 확인해 주세요."
-            )
+            QMessageBox.warning(self, "RFID 불일치", "확인자 RFID가 아닙니다.")
             return
 
-        # 정상 인증 처리
-        QMessageBox.information(self, "인증 완료", f"{staff_name}님의 RFID 인증이 확인되었습니다.")
+        # RFID 성공 메시지
+        QMessageBox.information(self, "인증 완료", f"{staff_name}님의 RFID가 인증되었습니다.")
 
-        # 인증 성공이므로 다이얼로그를 accept 처리한다 (중요!!)
+        # 다이얼로그 accept 처리
         if self.pending_dialog:
             self.pending_dialog.accept()
 
-        self._rfid_received = uid
+        # --- ⭐ 여기서 최종 등록 작업 실행 ⭐ ---
+        self.register_io_entry(staff_name)
 
     # ======================================================
     #                    주요 처리 로직
     # ======================================================
 
     def on_submit(self, kind: str):
-        product = self.product_combo.currentText().strip()
-        qty = self.qty_spin.value()
-        abnormal = self.abnormal_check.isChecked()
-        confirmer_text = self.confirmer_edit.text().strip()
+        self._pending_kind = kind  # '입고' / '출고'
+        self._pending_product = self.product_combo.currentText().strip()
+        self._pending_qty = self.qty_spin.value()
+        self._pending_abnormal = self.abnormal_check.isChecked()
+        self._pending_confirmer = self.confirmer_edit.text().strip()
 
-        if not product:
+        if not self._pending_product or self._pending_product == "선택하세요.":
+            QMessageBox.warning(self, "오류", "제품을 선택해 주세요.")
+            return
+        
+        if not self._pending_confirmer:
+            QMessageBox.warning(self, "오류", "확인자를 입력해 주세요.")
             return
 
-        if not confirmer_text:
-            QMessageBox.warning(self, "오류", "확인자 이름을 입력해주세요.")
-            return
-
-        # RFID 다이얼로그 호출
+        # RFID 인증 시작
         accepted = self._prompt_rfid_dialog()
         if not accepted:
-            QMessageBox.information(self, "취소", "취소되었습니다.")
-            self.waiting_for_rfid = False
+            QMessageBox.information(self, "취소", "RFID 인증이 취소되었습니다.")
             return
-
-        # RFID 처리
-        confirmed_by = None
-        if self._rfid_received is not None:
-            confirmed_by = self._rfid_received
-            confirmer_text = confirmer_text or confirmed_by
-
-        # DB 매핑
-        if abnormal:
-            inout_type = "return"
-            status = "RETURNED"
-        else:
-            inout_type = "IN" if kind == "입고" else "OUT"
-            status = "STORED"
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        payload = {
-            "product_name": product,
-            "inout_type": inout_type,
-            "quantity": qty,
-            "status": status,
-            "timestamp": timestamp,
-            "confirmed_by": confirmed_by,
-            "confirmer_name": confirmer_text,
-        }
-
-        # GUI 표시용
-        display_entry = {
-            "product_name": product,
-            "inout_type": "입고" if inout_type == "IN" else ("출고" if inout_type == "OUT" else "반품"),
-            "quantity": qty,
-            "status": "비정상" if status == "RETURNED" else "정상",
-            "timestamp": timestamp,
-            "confirmer": confirmer_text,
-        }
-
-        self.log_entry = display_entry
 
         # 폼 초기화
         self.product_combo.setCurrentIndex(0)
@@ -309,3 +261,80 @@ class IOWidget(QWidget):
         self.log_table.setItem(row, 4, QTableWidgetItem(str(entry.get("timestamp", ""))))
         self.log_table.setItem(row, 5, QTableWidgetItem(str(entry.get("confirmer", ""))))
         self.log_table.scrollToItem(self.log_table.item(row, 0))
+
+    def register_io_entry(self, confirmer_name):
+        kind = self._pending_kind               # "입고" / "출고"
+        product = self._pending_product
+        qty = self._pending_qty
+        abnormal = self._pending_abnormal       # True = 비정상
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # ===============================
+        # ① 동작 규칙: 비정상 + 입고/출고 처리
+        # ===============================
+        if not abnormal:
+            # 정상일 때
+            if kind == "입고":
+                inout_type = "IN"
+                status = "STORED"
+                display_inout = "입고"
+                display_status = "정상"
+            else:  # 출고
+                inout_type = "OUT"
+                status = "RELEASED"
+                display_inout = "출고"
+                display_status = "정상"
+        else:
+            # 비정상일 때
+            if kind == "입고":
+                # 반품 처리
+                inout_type = "RETURN"
+                status = "RETURNED"
+                display_inout = "반품"
+                display_status = "비정상"
+            else:
+                # 출고 불가 처리
+                inout_type = "REJECT"
+                status = "REJECTED"
+                display_inout = "출고불가"
+                display_status = "비정상"
+
+        # ===============================
+        # ② 화면 출력용 entry 구성
+        # ===============================
+        display_entry = {
+            "product_name": product,
+            "inout_type": display_inout,    # "입고" / "출고" / "반품" / "출고불가"
+            "quantity": qty,
+            "status": display_status,       # "정상" / "비정상"
+            "timestamp": timestamp,
+            "confirmer": confirmer_name
+        }
+
+        # 테이블 갱신
+        self.append_log(display_entry)
+
+        # ===============================
+        # ③ 서버 전송용 payload 구성
+        # ===============================
+        payload = {
+            "product_name": product,
+            "inout_type": inout_type,       # "IN" / "OUT" / "RETURN" / "REJECT"
+            "quantity": qty,
+            "status": status,               # "STORED" / "RELEASED" / "RETURNED" / "REJECTED"
+            "timestamp": timestamp,
+            "confirmer_name": confirmer_name
+        }
+
+        # 송신 signal
+        if hasattr(self.signaller, "io_send_signal"):
+            self.signaller.io_send_signal.emit(payload)
+
+        # ===============================
+        # ④ 입력 UI 초기화
+        # ===============================
+        self.product_combo.setCurrentIndex(0)
+        self.qty_spin.setValue(0)
+        self.abnormal_check.setChecked(False)
+        self.confirmer_edit.clear()
