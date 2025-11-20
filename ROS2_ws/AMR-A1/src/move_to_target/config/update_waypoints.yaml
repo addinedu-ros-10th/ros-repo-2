@@ -2,18 +2,18 @@
 # 2025.11.20 충전소를 원점으로 한 좌표따기 끝
 
 waypoints:
-  - name: "원점"
+  - name: "Origin"
     pose:
       position: {x: 0.0, y: 0.0}
       yaw: 0
-    neighbors: ["18번"]
+    neighbors: ["1번", "2번"]
 
 
   - name: "1번"
     pose:
       position: {x: 1.566143915827006, y: -0.7624471393671794}
       yaw: 270
-    neighbors: ["2번", "8번"]
+    neighbors: ["Origin", "2번", "8번"]
 
 
   - name: "2번"
@@ -27,7 +27,7 @@ waypoints:
     pose:
       position: {x: 1.6387578681704877, y: 0.03691246629888334}
       yaw: 90
-    neighbors: ["2번", "4번", "9번"]
+    neighbors: ["1번", "Origin"]
 
 
   - name: "4번"
@@ -79,7 +79,7 @@ waypoints:
     neighbors: ["8번", "11번"]
 
 
-  - name: "11번"
+    - name: "11번"
     pose:
       position: {x: 0.8559493965290068, y: 0.08201862789207194}
       yaw: 270
