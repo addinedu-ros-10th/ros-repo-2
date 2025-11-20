@@ -33,8 +33,14 @@ STAFF_CSV_PATH = "./GUI/data/staff_list.csv"
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
     """SLAM으로 만든 map(.yaml + .pgm) 또는 커스텀 PNG 위에 로봇 위치를 표시하는 위젯"""
+    """SLAM으로 만든 map(.yaml + .pgm) 또는 커스텀 PNG 위에 로봇 위치를 표시하는 위젯"""
 
     def __init__(self, map_path: str):
+        """
+        map_path:
+          - map.yaml  : SLAM map (yaml + pgm)
+          - afew.png  : GUI용 커스텀 이미지 (좌표 변환 직접 적용)
+        """
         """
         map_path:
           - map.yaml  : SLAM map (yaml + pgm)
@@ -69,9 +75,41 @@ class MapWidget(QLabel):
             self.base_pixmap = QPixmap(map_path)
             self.use_custom_png = True
 
+
+        self.robots = {}  # domain_id -> (x, y)  (단위: map frame [m])
+
+        # 기본값
+        self.resolution = 0.05     # [m/pixel]
+        self.origin = [0.0, 0.0, 0.0]  # [x, y, yaw] in map frame
+
+        # 커스텀 PNG를 쓰는지 여부 (True면 우리가 직접 스케일링/원점 맞춤)
+        self.use_custom_png = False
+
+        ext = os.path.splitext(map_path)[1].lower()
+        if ext in [".yaml", ".yml"]:
+            # 1) yaml이면: yaml 읽어서 image/reso/origin 사용
+            with open(map_path, "r") as f:
+                data = yaml.safe_load(f)
+
+            image_file = data["image"]          # 예: "lab1.pgm"
+            self.resolution = float(data["resolution"])
+            self.origin = data["origin"]        # [origin_x, origin_y, origin_yaw]
+
+            image_path = os.path.join(os.path.dirname(map_path), image_file)
+            self.base_pixmap = QPixmap(image_path)
+            self.use_custom_png = False
+        else:
+            # 2) png 등을 직접 사용하는 경우 (afew.png 등)
+            self.base_pixmap = QPixmap(map_path)
+            self.use_custom_png = True
+
         self.setPixmap(self.base_pixmap)
 
     def set_robot(self, domain_id: int, x: float, y: float):
+        """
+        로봇 위치 업데이트
+        x, y: pinky의 map 좌표계 [m] (예: /amcl_pose 의 position.x, position.y)
+        """
         """
         로봇 위치 업데이트
         x, y: pinky의 map 좌표계 [m] (예: /amcl_pose 의 position.x, position.y)
@@ -109,24 +147,25 @@ class MapWidget(QLabel):
 
         # ---------- 1) 커스텀 PNG 모드 (afew.png) ----------
         if self.use_custom_png:
-            # 1단계: pinky map 좌표 (x_world, y_world) -> GUI 좌표 (X_gui, Y_gui)
+            # 선형 변환식 (로봇 → GUI 좌표)
+            # X_gui = a1 * x_robot + b1
+            # Y_gui = a2 * y_robot + b2
 
-            # X_gui: 0~11, x:0 -> 0, x:2.25 -> 11
-            X_gui = (11.0 / 2.25) * x_world
+            a1 = 4.14
+            b1 = 1.364
+            a2 = 4.794
+            b2 = 5.008
 
-            # Y_gui: 0~17, y:-3.43 -> 0, y:0 -> 17
-            Y_gui = (17.0 / 3.43) * y_world + 17.0
+            X_gui = a1 * x_world + b1
+            Y_gui = a2 * y_world + b2
 
-            # 2단계: GUI 좌표 (0~11, 0~17)을 PNG 픽셀(0~img_w, 0~img_h)에 매핑
-            #   - X_gui = 0   -> px = 0
-            #   - X_gui = 11  -> px = img_w
+            # GUI 좌표를 PNG 픽셀로 변환
             px = img_w * (X_gui / 11.0)
 
-            #   - Y_gui = 0   -> "아래" → py = img_h
-            #   - Y_gui = 17  -> "위"   → py = 0
             py = img_h * (1.0 - (Y_gui / 17.0))
 
             return px, py
+
 
         # ---------- 2) YAML + PGM (Nav2 map 규약) ----------
         origin_x, origin_y, _ = self.origin
@@ -147,6 +186,8 @@ class MapWidget(QLabel):
         painter = QPainter(self)
 
         # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
+
+        # 원본 이미지를 비율 유지하면서 위젯 크기에 맞게 스케일링
         scaled = self.base_pixmap.scaled(
             self.size(),
             Qt.AspectRatioMode.KeepAspectRatio,
@@ -156,10 +197,46 @@ class MapWidget(QLabel):
         # 중앙 정렬을 위한 오프셋 계산
         offset_x = (self.width() - scaled.width()) // 2
         offset_y = (self.height() - scaled.height()) // 2
+        offset_x = (self.width() - scaled.width()) // 2
+        offset_y = (self.height() - scaled.height()) // 2
 
         # 중앙에 맵 그리기
         painter.drawPixmap(offset_x, offset_y, scaled)
+        # 중앙에 맵 그리기
+        painter.drawPixmap(offset_x, offset_y, scaled)
 
+        # 스케일 비율
+        base_w = self.base_pixmap.width()
+        base_h = self.base_pixmap.height()
+        if base_w == 0 or base_h == 0:
+            painter.end()
+            return
+
+        scale_x = scaled.width() / base_w
+        scale_y = scaled.height() / base_h
+
+        # 각 로봇 그리기
+        for domain, (x_world, y_world) in self.robots.items():
+            # 1) map 좌표 -> 원본 이미지 픽셀 좌표
+            img_px, img_py = self._world_to_image_pixel(x_world, y_world)
+
+            # 2) 스케일링 후, 화면좌표로 변환
+            px = int(img_px * scale_x) + offset_x
+            py = int(img_py * scale_y) + offset_y
+
+            # ★ 로봇 원(마커) 색: 빨강 고정
+            color = QColor(255, 0, 0)
+
+            # Brush = 빨강, Pen = 없음 (윤곽선 제거)
+            painter.setBrush(color)
+            painter.setPen(Qt.PenStyle.NoPen)
+
+            radius = 8
+            painter.drawEllipse(px - radius, py - radius, radius * 2, radius * 2)
+
+            # ★ 텍스트(로봇 ID) 색: 검정 고정
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(px + radius + 4, py + radius + 4, str(domain))
         # 스케일 비율
         base_w = self.base_pixmap.width()
         base_h = self.base_pixmap.height()
@@ -358,7 +435,7 @@ class MainWindow(QWidget):
 
     # -------------------- 로그 추가 --------------------
     def add_log(self, domain_id: int, x: float, y: float):
-        """로봇 좌표 수신 시 테이블에 로그 추가"""
+        """로봇 좌표 수신 시 테이블에 로그 추가 (GUI 상 변환 후 좌표를 그대로 보여줌)"""
         row = self.log_table.rowCount()
         self.log_table.insertRow(row)
         self.log_table.setItem(row, 0, QTableWidgetItem(str(domain_id)))
@@ -370,7 +447,7 @@ class MainWindow(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    # 1) signaller 생성 (기존)
+    # 1) signaller 생성
     signaller = BridgeSignaller()
 
     # 2) MainWindow에 signaller 전달
@@ -386,6 +463,11 @@ if __name__ == "__main__":
 
     # 3) 시그널 연결: ROS → GUI
     def update_gui(domain_id, x, y):
+        """
+        domain_id: 각 로봇 식별용 ID (예: 21, 22 등)
+        x, y     : pinky에서 넘어온 map 좌표 (/amcl_pose의 position.x, position.y)
+        """
+        # MapWidget 내부에서 PNG/YAML에 따라 좌표 변환하므로 여기서는 raw 값만 넘김
         window.map_widget.set_robot(domain_id, x, y)
         window.add_log(domain_id, x, y)
 

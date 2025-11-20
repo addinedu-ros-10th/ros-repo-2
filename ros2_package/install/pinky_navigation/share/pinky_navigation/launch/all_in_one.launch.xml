@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- ===== 공통 인자 ===== -->
+    <arg name="map" default="$(find-pkg-share pinky_navigation)/map/team2_map_real.yaml"/>
+    <arg name="use_sim_time" default="true"/>
+    <arg name="world_name" default="pinky_fp.world"/>
+
+    <!-- ===== ① Gazebo 시뮬 실행 ===== -->
+    <include file="$(find-pkg-share pinky_gz_sim)/launch/launch_sim_fp.launch.xml">
+        <arg name="world_name" value="$(var world_name)"/>
+    </include>
+
+    <!-- ===== ② Nav2 bringup 실행 (map_server, amcl 등) ===== -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/bringup_launch.xml">
+        <arg name="map" value="$(var map)"/>
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+
+    <!-- ===== ③ RViz 시각화 실행 ===== -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/nav2_view.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+</launch>
+ 
+ 
