@@ -456,18 +456,18 @@ if __name__ == "__main__":
 
     # DataFrame 초기화
     # 직원 테이블 프레임 초기화
-    df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+    # df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
 
     if os.path.exists(STAFF_CSV_PATH):
         try:
-            loaded_df = pd.read_csv(STAFF_CSV_PATH, encoding="utf-8-sig")
+            df = pd.read_csv(STAFF_CSV_PATH, encoding="utf-8-sig")
         except Exception as e:
             print(f"CSV 로드 실패: {e}")
-            loaded_df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+            df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
     else:
-        loaded_df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
+        df = pd.DataFrame(columns=["name", "phone", "date", "uid"])
     
-    window.staff_widget.update_log_table(loaded_df)
+    window.staff_widget.update_log_table(df)
 
     # 직원 테이블 프레임 초기화
     
@@ -527,8 +527,8 @@ if __name__ == "__main__":
             print(f"CSV 저장 완료: {STAFF_CSV_PATH}")
 
             # CSV 파일 다시 읽어서 StaffWidget 테이블 갱신
-            loaded_df = pd.read_csv(STAFF_CSV_PATH)
-            window.staff_widget.update_log_table(loaded_df)
+            df = pd.read_csv(STAFF_CSV_PATH)
+            window.staff_widget.update_log_table(df)
 
     if hasattr(signaller, "staff_delete_row"):
         try:

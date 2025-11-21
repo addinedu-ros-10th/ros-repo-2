@@ -1,20 +1,17 @@
-import sys
-import threading
 from datetime import datetime
 import pandas as pd
 import os
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton,
-    QVBoxLayout, QHBoxLayout, QStackedWidget,
+    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem
 )
 from PyQt6.QtWidgets import (
-    QLineEdit, QSpinBox, QCheckBox, QTextEdit, QGroupBox, QFormLayout,
+    QLineEdit, QSpinBox, QCheckBox, QGroupBox, QFormLayout,
     QHeaderView, QComboBox, QHBoxLayout, QMessageBox, QDialog
 )
-from PyQt6.QtCore import pyqtSignal, QObject, QStringListModel
-from PyQt6.QtGui import QStandardItemModel, QStandardItem
+from PyQt6.QtCore import pyqtSignal, QObject
+# from PyQt6.QtGui import QStandardItemModel, QStandardItem
 
 STAFF_CSV_PATH = "./GUI/data/staff_list.csv"
 
@@ -105,10 +102,7 @@ class IOWidget(QWidget):
         if hasattr(self.signaller, "staff_rfid_signal_2"):
             self.signaller.staff_rfid_signal_2.connect(self.Receiving_confirmation_tag)
 
-    # ======================================================
-    #                RFID 인증 및 처리
-    # ======================================================
-
+    # RFID 인증 및 처리
     def _prompt_rfid_dialog(self):
         user = self.confirmer_edit.text().strip() or "확인자"
 
@@ -167,10 +161,7 @@ class IOWidget(QWidget):
         # --- ⭐ 여기서 최종 등록 작업 실행 ⭐ ---
         self.register_io_entry(staff_name)
 
-    # ======================================================
-    #                    주요 처리 로직
-    # ======================================================
-
+    # 주요 처리 로직
     def on_submit(self, kind: str):
         self._pending_kind = kind  # '입고' / '출고'
         self._pending_product = self.product_combo.currentText().strip()
@@ -184,6 +175,18 @@ class IOWidget(QWidget):
         
         if not self._pending_confirmer:
             QMessageBox.warning(self, "오류", "확인자를 입력해 주세요.")
+            return
+        
+        staff_match = self.staff_list[self.staff_list["name"] == self._pending_confirmer]
+        if staff_match.empty:
+            QMessageBox.warning(self, "오류", "입력한 확인자가 직원 목록에 없습니다.")
+            return
+        
+        if (self._pending_qty <= 0):
+            QMessageBox.warning(self, "오류", "수량을 1개 이상으로 설정해 주세요.")
+            return
+        elif not isinstance(self._pending_qty, int):
+            QMessageBox.warning(self, "오류", "수량은 숫자만 입력해 주세요.")
             return
 
         # RFID 인증 시작
@@ -204,10 +207,8 @@ class IOWidget(QWidget):
         # if hasattr(self.signaller, "send_io"):
         #     self.signaller.send_io(payload)
 
-    # ======================================================
-    #                    부가 기능
-    # ======================================================
 
+    # 부가 기능
     def set_products(self, products: list):
         self.product_combo.clear()
 
@@ -270,9 +271,9 @@ class IOWidget(QWidget):
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # ===============================
-        # ① 동작 규칙: 비정상 + 입고/출고 처리
-        # ===============================
+ 
+        # 동작 규칙: 비정상 + 입고/출고 처리
+
         if not abnormal:
             # 정상일 때
             if kind == "입고":
@@ -300,9 +301,7 @@ class IOWidget(QWidget):
                 display_inout = "출고불가"
                 display_status = "비정상"
 
-        # ===============================
-        # ② 화면 출력용 entry 구성
-        # ===============================
+        # 화면 출력용 entry 구성
         display_entry = {
             "product_name": product,
             "inout_type": display_inout,    # "입고" / "출고" / "반품" / "출고불가"
@@ -315,9 +314,7 @@ class IOWidget(QWidget):
         # 테이블 갱신
         self.append_log(display_entry)
 
-        # ===============================
-        # ③ 서버 전송용 payload 구성
-        # ===============================
+        # 서버 전송용 payload 구성
         payload = {
             "product_name": product,
             "inout_type": inout_type,       # "IN" / "OUT" / "RETURN" / "REJECT"
@@ -332,9 +329,7 @@ class IOWidget(QWidget):
             # print(f"[입출고 등록] 보냈음 {payload}")
             self.signaller.io_send_signal.emit(payload)
 
-        # ===============================
-        # ④ 입력 UI 초기화
-        # ===============================
+        # 입력 UI 초기화
         self.product_combo.setCurrentIndex(0)
         self.qty_spin.setValue(0)
         self.abnormal_check.setChecked(False)
