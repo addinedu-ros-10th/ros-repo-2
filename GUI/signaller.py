@@ -11,3 +11,6 @@ class BridgeSignaller(QObject):
 
     io_send_signal = pyqtSignal(dict)         # 입출고 데이터 서버 전송
     io_logs_signal = pyqtSignal(list)         # 서버 → GUI 입출고 로그
+
+    gas_detected_signal = pyqtSignal(str)   # 가스 감지 메시지 전달
+    gas_none_signal = pyqtSignal(str)   # 가스 감지 메시지 전달

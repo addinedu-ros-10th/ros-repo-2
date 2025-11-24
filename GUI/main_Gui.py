@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtWidgets import (
     QLineEdit, QSpinBox, QCheckBox, QTextEdit, QGroupBox, QFormLayout,
-    QHeaderView
+    QHeaderView, QMessageBox
 )
 from PyQt6.QtCore import pyqtSignal, QObject
 
@@ -27,8 +27,10 @@ from GUI.storage_widget import StorageWidget
 
 import os
 import yaml
+import logging
 
 STAFF_CSV_PATH = "./GUI/data/staff_list.csv"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
 # ------------------------- [지도 위젯] -------------------------
 class MapWidget(QLabel):
@@ -48,7 +50,8 @@ class MapWidget(QLabel):
         """
         super().__init__()
 
-        self.robots = {}  # domain_id -> (x, y)  (단위: map frame [m])
+        self.robots = {}    # domain_id -> (x, y)  (단위: map frame [m])
+        self.sensors = {}   # ★ 추가: sensor_id -> (x, y)
 
         # 기본값
         self.resolution = 0.05     # [m/pixel]
@@ -237,6 +240,19 @@ class MapWidget(QLabel):
             # ★ 텍스트(로봇 ID) 색: 검정 고정
             painter.setPen(QColor(0, 0, 0))
             painter.drawText(px + radius + 4, py + radius + 4, str(domain))
+
+        # 각 센서 그리기
+        for sensor_id, (x_world, y_world) in self.sensors.items():
+            img_px, img_py = self._world_to_image_pixel(x_world, y_world)
+            px = int(img_px * scale_x) + offset_x
+            py = int(img_py * scale_y) + offset_y
+            painter.setBrush(QColor(0, 0, 255))  # 파랑
+            painter.setPen(Qt.PenStyle.NoPen)
+            radius = 6
+            painter.drawEllipse(px - radius, py - radius, radius * 2, radius * 2)
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(px + radius + 4, py + radius + 4, sensor_id)
+
         # 스케일 비율
         base_w = self.base_pixmap.width()
         base_h = self.base_pixmap.height()
@@ -269,6 +285,11 @@ class MapWidget(QLabel):
             # ★ 텍스트(로봇 ID) 색: 검정 고정
             painter.setPen(QColor(0, 0, 0))
             painter.drawText(px + radius + 4, py + radius + 4, str(domain))
+
+    def set_sensor(self, sensor_id: str, x: float, y: float):
+        """센서 위치 업데이트"""
+        self.sensors[sensor_id] = (x, y)
+        self.repaint()
 
 
 # ------------------------- [카메라 위젯] -------------------------
@@ -343,6 +364,8 @@ class MainWindow(QWidget):
         self.signaller = signaller
         self.setWindowTitle("찬LOGIC")
         self.setFixedSize(800, 600)
+
+        self.gas_active = False  # sensor_id -> bool (현재 감지 중인지)
 
         self.title_label = QLabel("메인 상태 화면")
         self.title_label.setFixedHeight(30)
@@ -441,6 +464,33 @@ class MainWindow(QWidget):
         self.log_table.setItem(row, 0, QTableWidgetItem(str(domain_id)))
         self.log_table.setItem(row, 1, QTableWidgetItem(f"({x:.2f}, {y:.2f})"))
         self.log_table.setItem(row, 2, QTableWidgetItem(datetime.now().strftime("%H:%M:%S")))
+    
+    def add_gas_log(self, sensor_id: str):
+        sensor_positions = {
+            "S1": (2.2, 1.0),
+            "S2": (-0.2, 1.0),
+            "S3": (2.2, 2.0),
+            "S4": (-0.2, 2.0),
+        }
+        pos = sensor_positions.get(sensor_id)
+        if pos:
+            self.add_log(f"Gas {sensor_id}", pos[0], pos[1])
+            window.map_widget.set_sensor(sensor_id, pos[0], pos[1])
+
+            if not self.gas_active:
+                self.gas_active = True
+
+                # ★ 알림창 띄우기
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Icon.Warning)
+                msg.setWindowTitle("Gas Alert")
+                msg.setText(f"현재 {sensor_id} 지역 좌표 {pos} 에서 가스가 감지되었습니다.\n지금 즉시 확인 바랍니다.")
+                msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+                msg.exec()
+    
+    def gas_none_handler(self, sensor_msg: str):
+        self.gas_active = False
+        print(sensor_msg)
 
 
 # ------------------------- [메인 실행부] -------------------------
@@ -483,6 +533,18 @@ if __name__ == "__main__":
         window.add_log(domain_id, x, y)
 
     signaller.robot_signal.connect(update_gui)
+
+    if hasattr(signaller, "gas_detected_signal"):
+        try:
+            signaller.gas_detected_signal.connect(window.add_gas_log)
+        except Exception as e:
+            print(f"gas_detected_signal 연결 실패: {e}")
+
+    if hasattr(signaller, "gas_none_signal"):
+        try: 
+            signaller.gas_none_signal.connect(window.gas_none_handler)
+        except Exception as e:
+            print(f"gas_none_signal 연결 실패: {e}")
 
     # 4) (선택) 입/출고 로그가 개별 연결이 필요하면 여기서 연결 가능
     # 예: signaller.io_logs_signal.connect(window.io_widget.update_logs)

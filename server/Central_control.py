@@ -117,6 +117,22 @@ class ROSTCPBridge(Node, QObject):
                         except Exception as e:
                             print(f"[파싱 오류] {e}")
 
+                    if msg.startswith("Gas detected"):
+                        try:
+                            parts = msg.split("→")
+                            gas_info = parts[0].strip()   # "RFID 3번"
+                            gas_ports = parts[1].strip()       # "S1, S
+                            print("📩 수신:", gas_info)
+                            # 가스 감지 메시지 처리 로직 추가 가능
+                            self.signaller.gas_detected_signal.emit(gas_ports)
+                        
+                        except Exception as e:
+                            print(f"[파싱 오류] {e}")
+                        
+                    else:
+                        self.signaller.gas_none_signal.emit("No Gas")
+
+
             except Exception as e:
                 print(f"[Arduion 연결 오류] {e}")
             finally:
