@@ -366,6 +366,7 @@ if __name__ == "__main__":
         x, y     : pinky에서 넘어온 map 좌표 (/amcl_pose의 position.x, position.y)
         """
         # MapWidget 내부에서 PNG/YAML에 따라 좌표 변환하므로 여기서는 raw 값만 넘김
+
         window.map_widget.set_robot(domain_id, x, y)
         window.add_log(domain_id, x, y)
 
