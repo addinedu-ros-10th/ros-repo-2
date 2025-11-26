@@ -21,6 +21,11 @@ class StaffWidget(QWidget):
         super().__init__()
         self.signaller = signaller
         self.waiting_for_rfid = False   # 등록 대기 상태 플래그
+        self.mode = None  # "register" or "delete"
+
+         # 삭제용 임시 저장공간
+        self.delete_target_row = None
+        self.delete_target_uid = None
 
         self.name_edit = QLineEdit()
         self.phone_edit = QLineEdit()
@@ -68,6 +73,8 @@ class StaffWidget(QWidget):
     def on_register(self):
         self.pending_dialog = QMessageBox(self)
         msg = self.pending_dialog
+        self.mode = "register"
+        
         
         if not self.name_edit.text() or not self.phone_edit.text():
             msg.setWindowTitle("오류")
@@ -103,52 +110,88 @@ class StaffWidget(QWidget):
         if not self.waiting_for_rfid:
             return
         
-        # RFID 수신 시 알림창 닫고 로그 추가
+        # 강제로 열려 있는 대화상자 닫기
         if self.pending_dialog:
-            self.pending_dialog.done(QMessageBox.StandardButton.Ok) # 강제로 닫기
+            try:
+                self.pending_dialog.done(QMessageBox.StandardButton.Ok)
+            except Exception:
+                pass
             self.pending_dialog = None
 
-        QMessageBox.information(self, "등록 완료", "등록처리가 완료되었습니다.")
-        self.waiting_for_rfid = False
+        if self.mode == "register":
+            self.waiting_for_rfid = False
+            self.mode = None
+            QMessageBox.information(self, "등록 완료", "등록처리가 완료되었습니다.")
 
-        name = self.name_edit.text()
-        phone = self.phone_edit.text()    # 뒤 4자리
-        date = self.date_edit.date().toString("yyyy-MM-dd")
+            name = self.name_edit.text()
+            phone = self.phone_edit.text()
+            date = self.date_edit.date().toString("yyyy-MM-dd")
 
-        # GUI에서 서버로 직원 데이터 전달
-        df = {"name": name, "phone": phone, "date": date, "uid": uid}
-        print(df)
-        self.signaller.staff_list_add.emit(df)
+            df = {"name": name, "phone": phone, "date": date, "uid": uid}
+            self.signaller.staff_list_add.emit(df)
 
-        # 데이터 초기화
-        self.name_edit.clear()
-        self.phone_edit.clear()
-        self.date_edit.setDate(QDate.currentDate())
+            self.name_edit.clear()
+            self.phone_edit.clear()
+            self.date_edit.setDate(QDate.currentDate())
+            return
+        
+        if self.mode == "delete":
+            self.waiting_for_rfid = False
+
+            # UID 비교
+            if uid != self.delete_target_uid:
+                QMessageBox.warning(self, "오류", "일치하지 않는 RFID입니다.")
+                self.mode = None
+                return
+
+            # UID 일치 → 삭제 수행
+            row = self.delete_target_row
+            name = self.log_table.item(row, 0).text()
+
+            self.log_table.removeRow(row)
+            self.signaller.staff_delete_row.emit(row)
+
+            QMessageBox.information(self, "삭제 완료", f"{name} 직원이 삭제되었습니다.")
+
+            # 상태 초기화
+            self.mode = None
+            self.delete_target_row = None
+            self.delete_target_uid = None
 
 
     def on_delete(self):
-        selected_rows = set()
-        for item in self.log_table.selectedItems():
-            selected_rows.add(item.row())
+        self.pending_dialog = QMessageBox(self)
+        msg = self.pending_dialog
+        selected = self.log_table.selectedItems()
 
-        for row in sorted(selected_rows, reverse=True):
-            # 삭제할 이름 가져오기 (첫 번째 열 기준)
-            name_item = self.log_table.item(row, 0)
-            name = name_item.text() if name_item else "선택된 항목"
+        if not selected:
+            msg.warning(self, "오류", "삭제할 직원을 선택해주세요.")
+            return
 
-            # 확인/취소 메시지 박스
-            reply = QMessageBox.question(
-                self,
-                "삭제 확인",
-                f"{name}을(를) 삭제하시겠습니까?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+        # 첫 번째 선택된 행 기준
+        row = selected[0].row()
+        uid_item = self.log_table.item(row, 3)
+        if not uid_item:
+            msg.warning(self, "오류", "UID 정보를 찾을 수 없습니다.")
+            return
 
-            if reply == QMessageBox.StandardButton.Yes:
-                self.log_table.removeRow(row)
-                self.signaller.staff_delete_row.emit(row)
-                print(f"GUI: {name} 삭제 시그널 발행 완료 (행 {row})")
+        # 삭제 대상 저장
+        self.delete_target_row = row
+        self.delete_target_uid = uid_item.text()
+
+        self.mode = "delete"
+        self.waiting_for_rfid = True
+
+        msg.setWindowTitle("RFID 확인")
+        msg.setText("삭제할 직원의 RFID 카드를 인식해주세요.")
+        msg.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        result = msg.exec()
+
+        if result == QMessageBox.StandardButton.Cancel:
+            self.waiting_for_rfid = False
+            self.mode = None
+            QMessageBox.information(self, "취소", "삭제가 취소되었습니다.")
+            return
 
 
     def update_log_table(self, staff_list):
