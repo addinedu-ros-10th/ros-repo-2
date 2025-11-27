@@ -111,11 +111,13 @@ class EvasionController(Node):
     def evasion_callback(self, msg):
         if msg.data: # True가 수신되면 (위협 감지)
             
-            # 🟢 [핵심 로직] Docking 중에는 회피를 무시 (제어권 방어)
-            if self.is_docking_active:
-                self.get_logger().info('📢 Docking 중이므로 회피 신호 무시.')
-                return 
-
+            # ❌ [삭제] 🟢 [수정된 로직] Docking 중에는 회피를 무시하는 로직을 제거했습니다.
+            # ❌ if self.is_docking_active:
+            # ❌     self.get_logger().info('📢 Docking 중이므로 회피 신호 무시.')
+            # ❌     return 
+            
+            # 🟢 이제 위협 감지 시 무조건 회피 기동을 시작합니다.
+            
             # --- 1. 후방 공간 확인 및 속도 결정 로직 (기존 코드 유지) ---
             if self.lidar_data is None:
                 self.get_logger().warn('!!! LIDAR 데이터 미수신: 안전을 위해 정지 !!!')
