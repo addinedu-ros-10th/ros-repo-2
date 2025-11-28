@@ -21,8 +21,7 @@ class DockingController(Node):
         self.pause_pub = self.create_publisher(Bool, '/pause_navigation', qos_profile)
 
         # === Subscribers ===
-        self.create_subscription(Bool, '/trigger_docking', self.docking_trigger_callback, qos_profile)
-        # 🚨 마커의 Pose를 Aruco 서버로부터 수신한다고 가정
+        self.create_subscription(Bool, '/docking_trigger', self.docking_trigger_callback, 10)        # 🚨 마커의 Pose를 Aruco 서버로부터 수신한다고 가정
         self.create_subscription(PoseStamped, '/aruco_target_pose', self.marker_pose_callback, 10) 
 
         # === 제어 파라미터 ===
