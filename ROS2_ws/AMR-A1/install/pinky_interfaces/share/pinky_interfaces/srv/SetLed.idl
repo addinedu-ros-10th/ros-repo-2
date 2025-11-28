@@ -1,0 +1,31 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from pinky_interfaces/srv/SetLed.srv
+// generated code does not contain a copyright notice
+
+
+module pinky_interfaces {
+  module srv {
+    @verbatim (language="comment", text=
+      "Request")
+    struct SetLed_Request {
+      string command;
+
+      @verbatim (language="comment", text=
+        "'set_pixel' 명령 시 사용할 픽셀 인덱스 배열")
+      sequence<int32> pixels;
+
+      int32 r;
+
+      int32 g;
+
+      int32 b;
+    };
+    @verbatim (language="comment", text=
+      "Response")
+    struct SetLed_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

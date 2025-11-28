@@ -1,0 +1,17 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from pinky_interfaces/srv/SetBrightness.srv
+// generated code does not contain a copyright notice
+
+
+module pinky_interfaces {
+  module srv {
+    struct SetBrightness_Request {
+      int32 brightness;
+    };
+    struct SetBrightness_Response {
+      boolean success;
+
+      string message;
+    };
+  };
+};

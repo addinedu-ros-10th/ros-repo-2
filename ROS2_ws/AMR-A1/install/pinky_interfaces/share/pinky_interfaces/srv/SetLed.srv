@@ -1,0 +1,11 @@
+# Request
+string command
+# 'set_pixel' 명령 시 사용할 픽셀 인덱스 배열
+int32[] pixels
+int32 r
+int32 g
+int32 b
+---
+# Response
+bool success
+string message

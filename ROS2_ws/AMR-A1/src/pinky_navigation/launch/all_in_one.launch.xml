@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- ===========================
+         공통 인자
+    ============================ -->
+    <arg name="map" default="$(find-pkg-share pinky_navigation)/map/team2_map_real.yaml"/>
+    <arg name="use_sim_time" default="false"/>
+
+    <!-- ===========================
+         ① 실제 로봇 bringup
+    ============================ -->
+    <include file="$(find-pkg-share pinky_bringup)/launch/bringup_robot.launch.xml"/>
+
+    <!-- ===========================
+         ② Nav2 bringup (map_server + amcl + nav2 stack)
+    ============================ -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/bringup_launch.xml">
+        <arg name="map" value="$(var map)"/>
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+
+    <!-- ===========================
+         ③ Map 확인용 RViz (map_view)
+    ============================ -->
+    <include file="$(find-pkg-share pinky_navigation)/launch/nav2_view.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+
+</launch>
