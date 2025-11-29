@@ -141,8 +141,8 @@ class YoloActionServer(Node):
         self.evasion_cooldown = False
         self.cooldown_timer = None
         
-        self.docking_sub = self.create_subscription(Bool, '/docking_trigger', self.docking_callback, 10)
-        self.get_logger().info("✅ /docking_trigger 구독 시작.")
+        self.docking_sub = self.create_subscription(Bool, '/trigger_docking', self.docking_callback, 10)
+        self.get_logger().info("✅ /trigger_docking 구독 시작.")
         self.get_logger().info("✅ /trigger_evasion 퍼블리셔 생성됨.")
         
         # --- 5. UDP 소켓 초기화 ---
