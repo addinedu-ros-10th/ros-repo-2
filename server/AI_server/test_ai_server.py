@@ -101,11 +101,11 @@ class YoloActionServer(Node):
         self.model = YOLO('yolov8n-pose.pt') 
 
         self.get_logger().info("Loading ArUco detector...")
-        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
         self.detector = aruco.ArucoDetector(self.aruco_dict, aruco.DetectorParameters())
         
         # ⚠️ [클라이언트 파라미터 반영] 카메라 보정 및 마커 설정
-        self.MARKER_SIZE = 0.05 
+        self.MARKER_SIZE = 0.04 
         self.K = np.array([
             [610.146483, 0.0, 325.900525],
             [0.0, 609.887179, 254.935952],
