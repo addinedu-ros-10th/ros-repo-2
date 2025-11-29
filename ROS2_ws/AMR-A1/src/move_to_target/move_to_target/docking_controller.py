@@ -21,7 +21,7 @@ class DockingController(Node):
         self.pause_pub = self.create_publisher(Bool, '/pause_navigation', qos_profile)
 
         # === Subscribers ===
-        self.create_subscription(Bool, '/docking_trigger', self.docking_trigger_callback, 10)
+        self.create_subscription(Bool, '/trigger_docking', self.docking_trigger_callback, 10)
         self.create_subscription(PoseStamped, '/aruco_target_pose', self.marker_pose_callback, 10) 
         
         # 🟢 [추가] Evasion 신호를 구독하여 Docking 중단 로직 실행
