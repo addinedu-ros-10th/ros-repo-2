@@ -122,8 +122,41 @@ class EvasionController(Node):
                 self.evasion_active = True 
                 return
 
-            # ... (후방 거리 계산 로직 및 속도 결정 로직 유지) ...
+            ranges = np.array(self.lidar_data.ranges)
+            num_ranges = len(ranges)
             
+            # (후방 거리 계산 - min_rear_distance 결정 로직)
+            center_index = num_ranges // 2
+            half_check = num_ranges // 8
+            rear_indices = list(range(center_index - half_check, center_index + half_check))
+            rear_distances = [ranges[i] for i in rear_indices if ranges[i] > 0.01 and ranges[i] < float('inf')]
+            min_rear_distance = min(rear_distances) if rear_distances else 5.0
+
+            # --- 2. 속도/방향 결정 ---
+            SAFE_BACKUP_DISTANCE = 0.50
+            MAX_BACKUP_SPEED = 0.3 
+            
+            if min_rear_distance < SAFE_BACKUP_DISTANCE:
+                 self.get_logger().warn(f'!!! 후방 장애물 ({min_rear_distance:.2f}m) 너무 가까움. 정지!!!')
+                 self.evasion_active = True # control_loop에서 정지 Twist() 발행
+                 return # 후진 대신 정지 상태 유지
+            
+            # 안전 속도 계산
+            self.target_speed = min(MAX_BACKUP_SPEED, max(0.0, (min_rear_distance - SAFE_BACKUP_DISTANCE) * 0.8))
+
+
+            # --- 3. 회전 방향 결정 (가장 넓은 공간 찾기) ---
+            points_per_side = num_ranges // 8
+            right_arc = ranges[:points_per_side] 
+            left_arc = ranges[num_ranges - points_per_side:]
+            
+            avg_dist_right = np.mean([d for d in right_arc if d > 0.01 and d < float('inf')])
+            avg_dist_left = np.mean([d for d in left_arc if d > 0.01 and d < float('inf')])
+            
+            self.turn_direction = 1.0 if avg_dist_left > avg_dist_right else -1.0 
+            self.get_logger().info(f'🧭 Decided: Turning {"LEFT" if self.turn_direction > 0 else "RIGHT"} (Clearer space)')
+
+
             # 4. 회피 명령 실행 (상태 업데이트 및 타이머 시작)
             if not self.evasion_active:
                 self.get_logger().warn('!!! 위협 감지: 회피 기동 시작 !!!')
